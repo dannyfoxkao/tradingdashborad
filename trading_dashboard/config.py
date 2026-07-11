@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 CONFIG_PATH: Path = BASE_DIR / "stock_config.json"
 LEADERBOARD_FILE: Path = BASE_DIR / "turnover_leaderboard.csv"
+LEADERBOARD_HISTORY_FILE: Path = BASE_DIR / "leaderboard_history.csv"
 
 # ── 時區：台股以 Asia/Taipei（UTC+8）為準，避免主機時區造成抓錯交易日 ──
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
