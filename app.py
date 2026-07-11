@@ -19,7 +19,14 @@ from trading_dashboard.config import (
 )
 from trading_dashboard.data_sources.disposition import fetch_disposition_map
 from trading_dashboard.data_sources.finmind import fetch_benchmark_data, fetch_index_close
-from trading_dashboard.ui import chart_grid, leaderboard_panel, momentum_panel, radar_panel, weather_panel
+from trading_dashboard.ui import (
+    chart_grid,
+    config_editor,
+    leaderboard_panel,
+    momentum_panel,
+    radar_panel,
+    weather_panel,
+)
 
 _SUB_CHART_OPTIONS = ["成交量", "成交金額 (估算)", "量 + 金額雙對比"]
 _PAGE_CSS = """
@@ -50,6 +57,7 @@ def main() -> None:
     malformed = find_malformed_ids(stocks_pool)
     if malformed:
         st.sidebar.warning("以下代號格式異常，將無法取得資料：" + "、".join(malformed))
+    config_editor.render(stocks_pool)
 
     # 1) 熱錢霸榜排行
     leaderboard_panel.render()
