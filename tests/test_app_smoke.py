@@ -13,6 +13,7 @@ import trading_dashboard.data_sources.disposition as disp_mod
 import trading_dashboard.data_sources.finmind as finmind_mod
 import trading_dashboard.indicators as indicators
 import trading_dashboard.ui.chart_grid as chart_grid_mod
+import trading_dashboard.ui.momentum_panel as momentum_mod
 import trading_dashboard.ui.radar_panel as radar_mod
 from trading_dashboard.config import parse_stock_id
 
@@ -46,14 +47,17 @@ def test_app_renders_without_exception(monkeypatch):
         return {parse_stock_id(t): df for t in tickers}
 
     monkeypatch.setattr(finmind_mod, "fetch_benchmark_data", lambda s, e: bench)
+    monkeypatch.setattr(finmind_mod, "fetch_index_close", lambda sid, s, e: bench)
     monkeypatch.setattr(disp_mod, "fetch_disposition_map", lambda: {})
     monkeypatch.setattr(chart_grid_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(radar_mod, "prefetch_many", fake_prefetch)
+    monkeypatch.setattr(momentum_mod, "prefetch_many", fake_prefetch)
 
     at = AppTest.from_file(APP_PATH).run(timeout=60)
 
     assert not at.exception
     assert at.title  # 有渲染出「監控板塊」標題
+    assert any("大盤氣象台" in str(m.value) for m in at.markdown)  # 氣象台已渲染
 
 
 def test_app_shows_placeholder_card_when_data_missing(monkeypatch):
@@ -69,9 +73,11 @@ def test_app_shows_placeholder_card_when_data_missing(monkeypatch):
         return out
 
     monkeypatch.setattr(finmind_mod, "fetch_benchmark_data", lambda s, e: bench)
+    monkeypatch.setattr(finmind_mod, "fetch_index_close", lambda sid, s, e: bench)
     monkeypatch.setattr(disp_mod, "fetch_disposition_map", lambda: {})
     monkeypatch.setattr(chart_grid_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(radar_mod, "prefetch_many", fake_prefetch)
+    monkeypatch.setattr(momentum_mod, "prefetch_many", fake_prefetch)
 
     at = AppTest.from_file(APP_PATH).run(timeout=60)
 

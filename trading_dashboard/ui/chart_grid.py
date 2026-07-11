@@ -18,6 +18,7 @@ from ..config import (
 )
 from ..data_sources.prefetch import prefetch_many
 from ..indicators import classify_trend, classify_volume, compute_alpha, volume_base
+from ..signals import evaluate_signals
 from .components import badge_html, get_rangebreaks, price_badge
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,45 @@ def _render_card(clean_id, name, df, sub_chart_type, benchmark_df, disposition_m
         _panel_html(clean_id, name, df, disp_windows, disp_mask, sub_chart_type, benchmark_df),
         unsafe_allow_html=True,
     )
+    sig_html = _signals_html(clean_id, df, bool(disp_mask.iloc[-1]))
+    if sig_html:
+        st.markdown(sig_html, unsafe_allow_html=True)
     st.plotly_chart(_build_figure(df, sub_chart_type, disp_windows), width="stretch", key=f"chart_{key}")
+
+
+def _chip(text: str, bg: str) -> str:
+    return (
+        f'<span style="background:{bg};color:#fff;padding:1px 5px;border-radius:3px;'
+        f'font-size:10px;margin:0 3px 2px 0;display:inline-block;">{html.escape(text)}</span>'
+    )
+
+
+def _signals_html(clean_id: str, df: pd.DataFrame, in_disp: bool) -> str:
+    """交易一致性訊號燈列（進場/出場/乖離）；無法評估時回空字串。"""
+    try:
+        sig = evaluate_signals(df, in_disp)
+    except Exception as e:  # 訊號失敗不應讓卡片崩潰
+        logger.warning("訊號評估失敗 %s：%s", clean_id, e)
+        sig = None
+    if not sig:
+        return ""
+    buy_chips = "".join(_chip(b, "#1b5e20") for b in sig["buys"])
+    sell_chips = "".join(_chip(s, "#b71c1c") for s in sig["sells"])
+    nb, ns = len(sig["buys"]), len(sig["sells"])
+    buy_badge = f'<span style="color:#66bb6a;font-weight:bold;">📥 進場 {nb}/5</span>'
+    sell_badge = (
+        f'<span style="color:#ef5350;font-weight:bold;margin-left:10px;">📤 出場警示 {ns}</span>'
+        if ns
+        else '<span style="color:#9e9e9e;margin-left:10px;">📤 無警示</span>'
+    )
+    bias_txt = f'<span style="color:#888;margin-left:10px;">乖離 5d {sig["bias5"]}% ｜ 20d {sig["bias20"]}%</span>'
+    chips = (buy_chips + sell_chips) or '<span style="color:#666;font-size:10px;">—</span>'
+    return f"""
+    <div style="padding:5px 10px; background:#181818; border-radius:6px; margin-bottom:5px; font-size:11px;">
+        <div style="margin-bottom:3px;">{buy_badge}{sell_badge}{bias_txt}</div>
+        <div>{chips}</div>
+    </div>
+    """
 
 
 def _empty_card_html(clean_id: str, name: str, reason: str) -> str:
