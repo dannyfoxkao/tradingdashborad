@@ -45,8 +45,36 @@ VOL_STD_WINDOW: int = 20
 
 # ── 趨勢研判門檻 ──
 MIN_TREND_ROWS: int = 21  # 少於此列數視為資料不足（MA20 尚未成形）
-TREND_SLOPE_LOOKBACK: int = 6  # MA20 斜率回看天數
+TREND_SLOPE_LOOKBACK: int = 5  # MA20 斜率回看根數（從 5 根前到現在）
 TREND_FLAT_SLOPE: float = -0.1  # 震盪(偏多) 容許的輕微負斜率下限
+TREND_SHORT_SLOPE_LOOKBACK: int = 3  # 短均（MA5/MA10）斜率回看根數
+TREND_BOTTOM_SLOPE_MIN: float = -0.3  # 底部翻揚容許的月線微跌下限 %
+TREND_HEAD_SLOPE_MAX: float = 0.3  # 頭部鈍化的月線動能上限 %
+
+# ── MACD / 大盤氣象台 ──
+MACD_FAST: int = 12
+MACD_SLOW: int = 26
+MACD_SIGNAL: int = 9
+WEATHER_MIN_ROWS: int = 35  # MACD(12,26,9)+月線可研判的最低列數
+INDEX_LOOKBACK_DAYS: int = 150  # 指數固定回看天數（確保 MACD/月線成形，不受觀測天數影響）
+
+# ── 交易一致性訊號門檻 ──
+SIGNAL_MIN_ROWS: int = 6
+SIGNAL_VOL_RATIO: float = 1.5  # 出量 / 糾結放量 的量比門檻
+SIGNAL_BAND_MAX_PCT: float = 2.0  # 均線糾結帶寬上限 %
+SIGNAL_RETEST_BIAS5: tuple[float, float] = (-3.0, 2.0)  # 多頭回測的 5 日乖離區間 %
+SIGNAL_DARK_BODY_PCT: float = 3.0  # 高位大黑K 實體門檻 %
+SIGNAL_DARK_BIAS20: float = 8.0  # 高位大黑K 的 20 日乖離門檻 %
+SIGNAL_STEEP_SLOPE20: float = 2.0  # 飆股月線斜率門檻 %
+SIGNAL_SLOW_SLOPE20: tuple[float, float] = (-0.5, 2.0)  # 緩漲月線斜率區間 %
+SIGNAL_WEAK_CLOSE_POS: float = 0.4  # 收弱：收盤位於當日區間的位置比例
+SIGNAL_OVERHEAT_BIAS5: float = 10.0  # 短線過熱乖離 %
+
+# ── 族群動能 ──
+BULL_LABELS: frozenset[str] = frozenset({"強多", "底部翻揚", "震盪(偏多)"})
+BEAR_LABELS: frozenset[str] = frozenset({"弱勢", "震盪(偏空)", "頭部鈍化"})
+MOMENTUM_BEAR_ALERT: float = 50.0  # 空方占比 ≥ → 族群轉弱警示
+MOMENTUM_BULL_ALERT: float = 60.0  # 多方占比 ≥ → 族群一起動
 
 # ── 量能研判門檻（量比 vr 與 Z-Score）──
 VOL_SURGE_RATIO: float = 2.5  # 爆量
