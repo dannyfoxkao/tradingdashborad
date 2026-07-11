@@ -45,6 +45,16 @@ def test_panel_html_turnover_mode_legend_matches_plotted_windows():
     assert "●60" not in sub_part
 
 
+def test_empty_card_html_shows_id_reason_and_escapes():
+    out = chart_grid._empty_card_html("2330", "<b>台積電</b>", "抓取失敗或代號無資料")
+
+    assert "2330" in out
+    assert "&lt;b&gt;台積電&lt;/b&gt;" in out
+    assert "<b>台積電</b>" not in out
+    assert "無資料" in out
+    assert "抓取失敗或代號無資料" in out
+
+
 def _row2_traces(fig: go.Figure) -> list:
     return [t for t in fig.data if getattr(t, "yaxis", "y") not in (None, "y")]
 

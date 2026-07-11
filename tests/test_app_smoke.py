@@ -47,3 +47,26 @@ def test_app_renders_without_exception(monkeypatch):
 
     assert not at.exception
     assert at.title  # 有渲染出「監控板塊」標題
+
+
+def test_app_shows_placeholder_card_when_data_missing(monkeypatch):
+    """個股抓不到資料時應顯示「無資料」占位卡，而非默默留白。"""
+    df = _fake_df()
+    bench = pd.DataFrame({"Close": [50.0 + i for i in range(70)]}, index=df.index)
+
+    def fake_prefetch(tickers, start, end, **kwargs):
+        # 第一檔回 None（模擬抓取失敗／無效代號），其餘正常
+        out = {}
+        for i, t in enumerate(tickers):
+            out[parse_stock_id(t)] = None if i == 0 else df
+        return out
+
+    monkeypatch.setattr(finmind_mod, "fetch_benchmark_data", lambda s, e: bench)
+    monkeypatch.setattr(disp_mod, "fetch_disposition_map", lambda: {})
+    monkeypatch.setattr(chart_grid_mod, "prefetch_many", fake_prefetch)
+    monkeypatch.setattr(radar_mod, "prefetch_many", fake_prefetch)
+
+    at = AppTest.from_file(APP_PATH).run(timeout=60)
+
+    assert not at.exception
+    assert any("無資料" in str(m.value) for m in at.markdown)

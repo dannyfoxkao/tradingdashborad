@@ -39,11 +39,17 @@ def render(group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, 
         for idx, ticker in enumerate(row_tickers):
             clean_id = parse_stock_id(ticker)
             df = data.get(clean_id)
-            if df is None or len(df) < _MIN_ROWS:
-                continue
             with cols[idx]:
-                _render_card(clean_id, selected_stocks[ticker], df, sub_chart_type,
-                             benchmark_df, disposition_map, key=f"{ticker}_{i + idx}")
+                if df is None:
+                    st.markdown(_empty_card_html(clean_id, selected_stocks[ticker], "抓取失敗或代號無資料"),
+                                unsafe_allow_html=True)
+                elif len(df) < _MIN_ROWS:
+                    st.markdown(_empty_card_html(clean_id, selected_stocks[ticker],
+                                                 f"僅 {len(df)} 筆，未達最低 {_MIN_ROWS} 筆"),
+                                unsafe_allow_html=True)
+                else:
+                    _render_card(clean_id, selected_stocks[ticker], df, sub_chart_type,
+                                 benchmark_df, disposition_map, key=f"{ticker}_{i + idx}")
 
 
 def _render_card(clean_id, name, df, sub_chart_type, benchmark_df, disposition_map, key="") -> None:
@@ -54,6 +60,18 @@ def _render_card(clean_id, name, df, sub_chart_type, benchmark_df, disposition_m
         unsafe_allow_html=True,
     )
     st.plotly_chart(_build_figure(df, sub_chart_type, disp_windows), width="stretch", key=f"chart_{key}")
+
+
+def _empty_card_html(clean_id: str, name: str, reason: str) -> str:
+    """個股無資料時的占位卡（取代原本的默默留白）。"""
+    safe_name = html.escape(str(name))
+    safe_reason = html.escape(reason)
+    return f"""
+    <div style="padding: 8px 10px; background-color: #1e1e1e; border-radius: 6px; border-left: 4px solid #616161; margin-bottom: 5px;">
+        <b style="color: #9e9e9e; font-size: 14px;">{clean_id} {safe_name}</b>
+        <div style="font-size: 12px; color: #757575;">⚠️ 無資料：{safe_reason}</div>
+    </div>
+    """
 
 
 def _disposition_mask(index: pd.DatetimeIndex, windows: list[dict]) -> pd.Series:

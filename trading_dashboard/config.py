@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -94,6 +95,23 @@ def configure_logging(level: int = logging.INFO) -> None:
 def parse_stock_id(ticker: str) -> str:
     """由 ticker（如 '2330.TW' / '5347.TWO'）取出純代號 '2330'。"""
     return ticker.split(".")[0].strip()
+
+
+# 台股代號：4~6 位數字，ETF/特別股允許尾碼一個大寫字母（如 00981A）
+TICKER_RE = re.compile(r"^\d{4,6}[A-Z]?$")
+# 已知指數代號：非個股但屬合法設定（供大盤基準/氣象台使用）
+KNOWN_INDEX_IDS: frozenset[str] = frozenset({"TAIEX", "TPEx"})
+
+
+def find_malformed_ids(stocks_pool: dict[str, dict[str, str]]) -> list[str]:
+    """回傳格式異常（非股票代號、亦非已知指數）的 ticker 清單（去重、保序）。"""
+    bad: list[str] = []
+    for members in stocks_pool.values():
+        for ticker in members:
+            clean = parse_stock_id(ticker)
+            if clean not in KNOWN_INDEX_IDS and not TICKER_RE.match(clean):
+                bad.append(ticker)
+    return list(dict.fromkeys(bad))
 
 
 def load_stock_config(path: Path | str = CONFIG_PATH) -> dict[str, dict[str, str]]:
