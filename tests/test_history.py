@@ -1,8 +1,16 @@
-"""history（排行榜每日快照 append-only 歷史）的單元測試。"""
+"""history（排行榜每日快照、雷達訊號歷史、前瞻報酬）的單元測試。"""
 
 import pandas as pd
 
-from trading_dashboard.history import HISTORY_COLUMNS, append_leaderboard_snapshot, build_history_matrix, load_history
+from trading_dashboard.history import (
+    HISTORY_COLUMNS,
+    SIGNAL_COLUMNS,
+    append_leaderboard_snapshot,
+    append_signal_snapshot,
+    build_history_matrix,
+    forward_return,
+    load_history,
+)
 
 
 def _rows(turnovers=(100.0, 80.0)):
@@ -78,3 +86,68 @@ def test_build_history_matrix_pivot(tmp_path):
 def test_build_history_matrix_empty():
     assert build_history_matrix(pd.DataFrame()).empty
     assert build_history_matrix(None).empty
+
+
+# ── 雷達訊號歷史 ──
+
+
+def _sig(sid="2330", name="台積電", signal="🟢 強多", close=1000.0, alpha=5.0):
+    return {"stock_id": sid, "name": name, "signal": signal, "close": close, "alpha": alpha}
+
+
+def test_signal_snapshot_creates_file(tmp_path):
+    path = tmp_path / "signals.csv"
+
+    df = append_signal_snapshot([_sig()], "2026-07-10", path)
+
+    assert list(df.columns) == SIGNAL_COLUMNS
+    assert len(df) == 1
+
+
+def test_signal_same_day_partial_scans_union(tmp_path):
+    """同日先掃「全部族群」再掃「本族群」→ 不得抹除其他訊號（聯集）。"""
+    path = tmp_path / "signals.csv"
+    append_signal_snapshot([_sig("2330"), _sig("6488", "環球晶")], "2026-07-10", path)
+
+    df = append_signal_snapshot([_sig("2330", close=1010.0)], "2026-07-10", path)
+
+    assert len(df) == 2  # 6488 保留、2330 只一筆
+    assert df[df["stock_id"] == "2330"]["close"].iloc[0] == 1010.0  # (date,sid) 以新蓋舊
+
+
+def test_signal_cross_day_accumulates(tmp_path):
+    path = tmp_path / "signals.csv"
+    append_signal_snapshot([_sig()], "2026-07-09", path)
+
+    df = append_signal_snapshot([_sig()], "2026-07-10", path)
+
+    assert len(df) == 2
+
+
+# ── forward_return ──
+
+
+def _price_df(n=30, start="2026-07-01"):
+    idx = pd.bdate_range(start, periods=n)
+    return pd.DataFrame({"Close": [100.0 + i for i in range(n)]}, index=idx)
+
+
+def test_forward_return_basic():
+    df = _price_df()
+    # 基準 = 2026-07-01（Close=100），5 根後 Close=105 → +5%
+    assert forward_return(df, "2026-07-01", 5) == 5.0
+
+
+def test_forward_return_signal_on_non_trading_day_uses_next_bar():
+    df = _price_df()
+    # 2026-07-04 是週六 → 基準取次一交易日 7/6（Close=103）
+    r = forward_return(df, "2026-07-04", 5)
+    expected = (108.0 - 103.0) / 103.0 * 100
+    assert abs(r - expected) < 1e-9
+
+
+def test_forward_return_insufficient_bars_returns_none():
+    df = _price_df(n=5)
+    assert forward_return(df, "2026-07-01", 10) is None
+    assert forward_return(None, "2026-07-01", 5) is None
+    assert forward_return(df, "2026-12-31", 5) is None  # 訊號日在資料之後

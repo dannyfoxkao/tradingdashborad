@@ -19,6 +19,7 @@ BASE_DIR: Path = Path(__file__).resolve().parent.parent
 CONFIG_PATH: Path = BASE_DIR / "stock_config.json"
 LEADERBOARD_FILE: Path = BASE_DIR / "turnover_leaderboard.csv"
 LEADERBOARD_HISTORY_FILE: Path = BASE_DIR / "leaderboard_history.csv"
+SIGNALS_HISTORY_FILE: Path = BASE_DIR / "signals_history.csv"
 
 # ── 時區：台股以 Asia/Taipei（UTC+8）為準，避免主機時區造成抓錯交易日 ──
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
@@ -70,6 +71,9 @@ SIGNAL_STEEP_SLOPE20: float = 2.0  # 飆股月線斜率門檻 %
 SIGNAL_SLOW_SLOPE20: tuple[float, float] = (-0.5, 2.0)  # 緩漲月線斜率區間 %
 SIGNAL_WEAK_CLOSE_POS: float = 0.4  # 收弱：收盤位於當日區間的位置比例
 SIGNAL_OVERHEAT_BIAS5: float = 10.0  # 短線過熱乖離 %
+
+# ── 訊號歷史前瞻報酬 ──
+FORWARD_RETURN_DAYS: tuple[int, ...] = (5, 10, 20)  # 可選的 N 日後報酬
 
 # ── 族群動能 ──
 BULL_LABELS: frozenset[str] = frozenset({"強多", "底部翻揚", "震盪(偏多)"})

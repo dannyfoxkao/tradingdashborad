@@ -79,9 +79,11 @@ def test_buttons_drive_panels(monkeypatch):
     )
     monkeypatch.setattr(lb_mod, "update_leaderboard_data", lambda combined, date: _ledger_df())
     monkeypatch.setattr(lb_mod, "load_leaderboard", lambda *a, **k: _ledger_df())
-    # 快照寫檔導向 tmp（防止測試寫入 repo 根目錄的真實歷史檔）
+    # 快照寫檔全部擋掉（防止測試寫入 repo 根目錄的真實歷史檔）
     monkeypatch.setattr(lb_mod, "append_leaderboard_snapshot", lambda rows, date: None)
     monkeypatch.setattr(lb_mod, "load_history", lambda *a, **k: None)
+    monkeypatch.setattr(radar_mod, "append_signal_snapshot", lambda rows, date: None)
+    monkeypatch.setattr(radar_mod, "load_history", lambda *a, **k: None)
 
     at = AppTest.from_file(APP_PATH).run(timeout=60)
     assert not at.exception

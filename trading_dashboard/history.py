@@ -12,10 +12,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from .config import LEADERBOARD_HISTORY_FILE
+from .config import LEADERBOARD_HISTORY_FILE, SIGNALS_HISTORY_FILE
 from .persistence import atomic_write_csv
 
 HISTORY_COLUMNS = ["date", "stock_id", "name", "market", "turnover_billion", "rank"]
+SIGNAL_COLUMNS = ["date", "stock_id", "name", "signal", "close", "alpha"]
 
 
 def load_history(path: Path | str) -> pd.DataFrame | None:
@@ -56,6 +57,58 @@ def append_leaderboard_snapshot(
 
     atomic_write_csv(new_df, path)
     return new_df
+
+
+def append_signal_snapshot(
+    rows: list[dict],
+    date_str: str,
+    path: Path | str = SIGNALS_HISTORY_FILE,
+) -> pd.DataFrame:
+    """雷達訊號寫入歷史；去重鍵 = (date, stock_id)、keep last。
+
+    刻意「不」整日覆蓋：同日先掃「全部族群」再掃「本族群」時，
+    部分掃描不得抹除其他族群稍早記錄的訊號（聯集語意）。
+    """
+    new_df = pd.DataFrame(
+        [
+            {
+                "date": date_str,
+                "stock_id": r["stock_id"],
+                "name": r["name"],
+                "signal": r["signal"],
+                "close": r["close"],
+                "alpha": r["alpha"],
+            }
+            for r in rows
+        ],
+        columns=SIGNAL_COLUMNS,
+    )
+    old = load_history(path)
+    if old is not None and not old.empty:
+        new_df = pd.concat([old, new_df], ignore_index=True)
+    new_df = new_df.drop_duplicates(subset=["date", "stock_id"], keep="last").reset_index(drop=True)
+    atomic_write_csv(new_df, path)
+    return new_df
+
+
+def forward_return(price_df: pd.DataFrame | None, signal_date, n_days: int) -> float | None:
+    """以訊號日（非交易日則取次一交易日）收盤為基準，往後第 n_days 根的報酬 %。
+
+    價格資料不足 n_days 根、訊號日在資料範圍之後、或基準價無效時回 None。
+    """
+    if price_df is None or price_df.empty:
+        return None
+    base_pos = int(price_df.index.searchsorted(pd.Timestamp(signal_date)))
+    if base_pos >= len(price_df):
+        return None
+    target_pos = base_pos + n_days
+    if target_pos >= len(price_df):
+        return None
+    base = float(price_df["Close"].iloc[base_pos])
+    if base <= 0:
+        return None
+    later = float(price_df["Close"].iloc[target_pos])
+    return (later - base) / base * 100
 
 
 def build_history_matrix(history_df: pd.DataFrame | None, top_n: int = 20) -> pd.DataFrame:

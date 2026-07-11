@@ -1,6 +1,7 @@
 # 執行期產物（runtime artifact）：熱錢排行帳本與歷史快照，每次刷新都會變動
 turnover_leaderboard.csv
 leaderboard_history.csv
+signals_history.csv
 
 # Python
 __pycache__/
