@@ -1,4 +1,5 @@
 """persistence 原子寫入的單元測試。"""
+
 import pandas as pd
 import pytest
 

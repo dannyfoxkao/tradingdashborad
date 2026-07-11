@@ -3,10 +3,10 @@
 模擬資料層（不連網），驗證三大面板可完整渲染且不丟出例外，
 同時涵蓋 UI 渲染路徑（圖卡、徽章、Plotly 圖）。
 """
+
 from pathlib import Path
 
 import pandas as pd
-import pytest
 from streamlit.testing.v1 import AppTest
 
 import trading_dashboard.data_sources.disposition as disp_mod
@@ -24,10 +24,17 @@ def _fake_df():
     idx = pd.date_range("2026-01-01", periods=n, freq="B")
     closes = [100.0 + i for i in range(n)]
     vols = [1000.0 + i for i in range(n)]
-    df = pd.DataFrame({
-        "Open": closes, "High": [c + 1 for c in closes], "Low": [c - 1 for c in closes],
-        "Close": closes, "Volume": vols, "Turnover": [c * v for c, v in zip(closes, vols)],
-    }, index=idx)
+    df = pd.DataFrame(
+        {
+            "Open": closes,
+            "High": [c + 1 for c in closes],
+            "Low": [c - 1 for c in closes],
+            "Close": closes,
+            "Volume": vols,
+            "Turnover": [c * v for c, v in zip(closes, vols, strict=False)],
+        },
+        index=idx,
+    )
     return indicators.enrich(df)
 
 

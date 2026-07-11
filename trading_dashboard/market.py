@@ -1,4 +1,5 @@
 """交易日推算與全市場(上市+上櫃)成交值排行抓取。"""
+
 from __future__ import annotations
 
 import logging
@@ -7,8 +8,8 @@ import time
 from datetime import datetime, timedelta
 
 from .config import DEFAULT_HEADERS, MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE, TZ_TAIPEI
-from .data_sources.twse import fetch_twse_top20
 from .data_sources.tpex import fetch_tpex_top20
+from .data_sources.twse import fetch_twse_top20
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,7 @@ def resolve_trading_base_date(now: datetime) -> datetime:
     收盤(14:30)前以前一日為基準，並回溯至最近的工作日。為純函式，
     傳入 tz-aware 的 now 即可單元測試（不依賴實機時鐘）。
     """
-    before_close = now.hour < MARKET_CLOSE_HOUR or (
-        now.hour == MARKET_CLOSE_HOUR and now.minute < MARKET_CLOSE_MINUTE
-    )
+    before_close = now.hour < MARKET_CLOSE_HOUR or (now.hour == MARKET_CLOSE_HOUR and now.minute < MARKET_CLOSE_MINUTE)
     base = now - timedelta(days=1) if before_close else now
     while base.weekday() >= 5:  # 週六/日往前
         base -= timedelta(days=1)

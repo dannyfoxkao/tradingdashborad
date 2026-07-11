@@ -3,6 +3,7 @@
 處置期間改分盤集合競價(5分/20分撮合)、常預收款券/暫停當沖 → 量能被機械性壓縮、
 不可比，故用於：① 標記處置中 ② 量能基準排除處置日 ③ K 線標出處置區間。
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,7 +21,7 @@ TWSE_PUNISH_URL = "https://openapi.twse.com.tw/v1/announcement/punish"
 TPEX_DISPOSAL_URL = "https://www.tpex.org.tw/openapi/v1/tpex_disposal_information"
 
 _PERIOD_SLASH_RE = re.compile(r"(\d{2,3})/(\d{1,2})/(\d{1,2})")  # 帶斜線 (TWSE)
-_PERIOD_COMPACT_RE = re.compile(r"(\d{7})")                       # 緊湊 7 碼 (TPEx)
+_PERIOD_COMPACT_RE = re.compile(r"(\d{7})")  # 緊湊 7 碼 (TPEx)
 
 
 def parse_period(s: object) -> tuple[pd.Timestamp | None, pd.Timestamp | None]:
@@ -35,8 +36,10 @@ def parse_period(s: object) -> tuple[pd.Timestamp | None, pd.Timestamp | None]:
         )
     compact = _PERIOD_COMPACT_RE.findall(text)
     if len(compact) >= 2:
+
         def _c(x: str) -> pd.Timestamp:
             return pd.Timestamp(int(x[:3]) + 1911, int(x[3:5]), int(x[5:7]))
+
         return _c(compact[0]), _c(compact[1])
     return None, None
 
@@ -60,9 +63,7 @@ def is_in_disposition(disposition_map: dict, stock_id: str, ref_date) -> bool:
 def _add(result: dict, sid: str, start, end, measure_text: str, market: str) -> None:
     if not sid or start is None or end is None:
         return
-    result.setdefault(sid, []).append(
-        {"start": start, "end": end, "measure": measure_text, "market": market}
-    )
+    result.setdefault(sid, []).append({"start": start, "end": end, "measure": measure_text, "market": market})
 
 
 @st.cache_data(ttl=DISPOSITION_TTL)
@@ -78,7 +79,10 @@ def fetch_disposition_map() -> dict:
             sid = str(it.get("Code", "")).strip()
             start, end = parse_period(it.get("DispositionPeriod", ""))
             _add(
-                result, sid, start, end,
+                result,
+                sid,
+                start,
+                end,
                 measure(str(it.get("DispositionMeasures", "")) + str(it.get("Detail", ""))),
                 "上市",
             )

@@ -1,0 +1,8 @@
+# 只掛 ruff 檢查與格式化（mypy/pytest 交給 CI，避免拖慢 commit 節奏）
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format

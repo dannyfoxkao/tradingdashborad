@@ -18,6 +18,13 @@ env/
 htmlcov/
 coverage.xml
 
+# Lint / 型別檢查快取
+.ruff_cache/
+.mypy_cache/
+
+# Claude Code 本機設定
+.claude/
+
 # 環境變數（含 FINMIND_TOKEN 等機密）
 .env
 

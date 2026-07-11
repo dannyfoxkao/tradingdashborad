@@ -8,9 +8,10 @@ def _make_df(closes, volumes=None, turnovers=None):
     n = len(closes)
     idx = pd.date_range("2026-01-01", periods=n, freq="B")
     vol = volumes if volumes is not None else [1000.0] * n
-    turn = turnovers if turnovers is not None else [c * v for c, v in zip(closes, vol)]
-    df = pd.DataFrame({"Open": closes, "High": closes, "Low": closes,
-                       "Close": closes, "Volume": vol, "Turnover": turn}, index=idx)
+    turn = turnovers if turnovers is not None else [c * v for c, v in zip(closes, vol, strict=False)]
+    df = pd.DataFrame(
+        {"Open": closes, "High": closes, "Low": closes, "Close": closes, "Volume": vol, "Turnover": turn}, index=idx
+    )
     return indicators.enrich(df)
 
 

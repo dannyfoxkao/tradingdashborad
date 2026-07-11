@@ -2,6 +2,7 @@
 
 啟動方式：``streamlit run app.py``
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -9,7 +10,11 @@ from datetime import datetime, timedelta
 import streamlit as st
 
 from trading_dashboard.config import (
-    ConfigError, TZ_TAIPEI, configure_logging, find_malformed_ids, load_stock_config,
+    TZ_TAIPEI,
+    ConfigError,
+    configure_logging,
+    find_malformed_ids,
+    load_stock_config,
 )
 from trading_dashboard.data_sources.disposition import fetch_disposition_map
 from trading_dashboard.data_sources.finmind import fetch_benchmark_data
@@ -69,10 +74,10 @@ def main() -> None:
     selected_stocks = stocks_pool[group_choice]
 
     # 4) 選股雷達 + K 線網格牆
-    radar_panel.render(group_choice, selected_stocks, stocks_pool, start_str, end_str,
-                       benchmark_df, disposition_map)
-    chart_grid.render(group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, end_str,
-                      benchmark_df, disposition_map)
+    radar_panel.render(group_choice, selected_stocks, stocks_pool, start_str, end_str, benchmark_df, disposition_map)
+    chart_grid.render(
+        group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, end_str, benchmark_df, disposition_map
+    )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 """自訂板塊 K 線網格牆（Pro 級量化指標）。"""
+
 from __future__ import annotations
 
 import html
@@ -10,7 +11,10 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 from ..config import (
-    ALPHA_LAG, ALPHA_STRONG, HUNDRED_MILLION, parse_stock_id,
+    ALPHA_LAG,
+    ALPHA_STRONG,
+    HUNDRED_MILLION,
+    parse_stock_id,
 )
 from ..data_sources.prefetch import prefetch_many
 from ..indicators import classify_trend, classify_volume, compute_alpha, volume_base
@@ -27,29 +31,42 @@ _TURN_BAR, _DUAL_LINE, _DISP_FILL = "#455a64", "#cfd8dc", "#7e57c2"
 _TURN_TYPE, _DUAL_TYPE = "成交金額 (估算)", "量 + 金額雙對比"
 
 
-def render(group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, end_str,
-           benchmark_df, disposition_map) -> None:
+def render(
+    group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, end_str, benchmark_df, disposition_map
+) -> None:
     tickers = list(selected_stocks.keys())
     # 先平行預抓整個族群，迴圈內只做 dict 查找（修序列阻塞）
     data = prefetch_many(tickers, start_str, end_str)
 
     for i in range(0, len(tickers), grid_cols):
-        row_tickers = tickers[i:i + grid_cols]
+        row_tickers = tickers[i : i + grid_cols]
         cols = st.columns(grid_cols)
         for idx, ticker in enumerate(row_tickers):
             clean_id = parse_stock_id(ticker)
             df = data.get(clean_id)
             with cols[idx]:
                 if df is None:
-                    st.markdown(_empty_card_html(clean_id, selected_stocks[ticker], "抓取失敗或代號無資料"),
-                                unsafe_allow_html=True)
+                    st.markdown(
+                        _empty_card_html(clean_id, selected_stocks[ticker], "抓取失敗或代號無資料"),
+                        unsafe_allow_html=True,
+                    )
                 elif len(df) < _MIN_ROWS:
-                    st.markdown(_empty_card_html(clean_id, selected_stocks[ticker],
-                                                 f"僅 {len(df)} 筆，未達最低 {_MIN_ROWS} 筆"),
-                                unsafe_allow_html=True)
+                    st.markdown(
+                        _empty_card_html(
+                            clean_id, selected_stocks[ticker], f"僅 {len(df)} 筆，未達最低 {_MIN_ROWS} 筆"
+                        ),
+                        unsafe_allow_html=True,
+                    )
                 else:
-                    _render_card(clean_id, selected_stocks[ticker], df, sub_chart_type,
-                                 benchmark_df, disposition_map, key=f"{ticker}_{i + idx}")
+                    _render_card(
+                        clean_id,
+                        selected_stocks[ticker],
+                        df,
+                        sub_chart_type,
+                        benchmark_df,
+                        disposition_map,
+                        key=f"{ticker}_{i + idx}",
+                    )
 
 
 def _render_card(clean_id, name, df, sub_chart_type, benchmark_df, disposition_map, key="") -> None:
@@ -87,8 +104,9 @@ def _panel_html(clean_id, name, df, disp_windows, disp_mask, sub_chart_type, ben
     in_disp = bool(disp_mask.iloc[-1])
     active_w = next((w for w in disp_windows if w["start"] <= last_date <= w["end"]), None)
     disp_html = (
-        badge_html(f'處置 {active_w["measure"]}·至{active_w["end"].strftime("%m/%d")}', "#6a1b9a", "⛔")
-        if active_w else ""
+        badge_html(f"處置 {active_w['measure']}·至{active_w['end'].strftime('%m/%d')}", "#6a1b9a", "⛔")
+        if active_w
+        else ""
     )
 
     price_html = trend_html = vol_html = alpha_html = ""
@@ -109,15 +127,14 @@ def _panel_html(clean_id, name, df, disp_windows, disp_mask, sub_chart_type, ben
             vol_html = badge_html(vi["label"], vi["bg"], vi["icon"])
 
         alpha_val, beta = compute_alpha(df, benchmark_df)
-        if alpha_val is not None:
+        if alpha_val is not None and beta is not None:
             alpha_html = _alpha_badge(alpha_val, beta)
     except Exception as e:  # 指標計算失敗不應讓整張卡片崩潰
         logger.warning("圖卡指標計算失敗 %s：%s", clean_id, e)
 
     sub_label = "額MA" if sub_chart_type == _TURN_TYPE else "量MA"
     sub_legend = "".join(
-        f'<span style="color:{color}; margin-right:5px;">●{w}</span>'
-        for w, color in _SUB_MA_COLORS.items()
+        f'<span style="color:{color}; margin-right:5px;">●{w}</span>' for w, color in _SUB_MA_COLORS.items()
     )
     safe_name = html.escape(str(name))
     return f"""
@@ -151,32 +168,47 @@ def _alpha_badge(alpha_val: float, beta: float) -> str:
 
 
 def _build_figure(df: pd.DataFrame, sub_chart_type: str, disp_windows: list[dict]) -> go.Figure:
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05,
-                        row_heights=[0.70, 0.30])
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.70, 0.30])
     display_vol = df["Volume"] / 1000
-    vol_colors = [_CANDLE_UP if c >= o else _CANDLE_DOWN for o, c in zip(df["Open"], df["Close"])]
+    vol_colors = [_CANDLE_UP if c >= o else _CANDLE_DOWN for o, c in zip(df["Open"], df["Close"], strict=False)]
 
-    fig.add_trace(go.Candlestick(
-        x=df.index, open=df["Open"], high=df["High"], low=df["Low"], close=df["Close"],
-        increasing_line_color=_CANDLE_UP, decreasing_line_color=_CANDLE_DOWN,
-        increasing_fillcolor=_CANDLE_UP, decreasing_fillcolor=_CANDLE_DOWN,
-    ), row=1, col=1)
+    fig.add_trace(
+        go.Candlestick(
+            x=df.index,
+            open=df["Open"],
+            high=df["High"],
+            low=df["Low"],
+            close=df["Close"],
+            increasing_line_color=_CANDLE_UP,
+            decreasing_line_color=_CANDLE_DOWN,
+            increasing_fillcolor=_CANDLE_UP,
+            decreasing_fillcolor=_CANDLE_DOWN,
+        ),
+        row=1,
+        col=1,
+    )
     for ma, color in _MA_COLORS.items():
-        fig.add_trace(go.Scatter(x=df.index, y=df[ma], mode="lines",
-                                 line=dict(color=color, width=1.2)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df[ma], mode="lines", line={"color": color, "width": 1.2}), row=1, col=1)
 
     _add_subchart(fig, df, sub_chart_type, display_vol, vol_colors)
 
-    fig.update_layout(height=380, margin=dict(l=35, r=35, t=30, b=15), template="plotly_dark",
-                      xaxis_rangeslider_visible=False, showlegend=False, hovermode="x unified")
-    fig.update_xaxes(rangebreaks=[dict(values=get_rangebreaks(df.index))])
+    fig.update_layout(
+        height=380,
+        margin={"l": 35, "r": 35, "t": 30, "b": 15},
+        template="plotly_dark",
+        xaxis_rangeslider_visible=False,
+        showlegend=False,
+        hovermode="x unified",
+    )
+    fig.update_xaxes(rangebreaks=[{"values": get_rangebreaks(df.index)}])
 
     for w in disp_windows:  # ⛔ 處置期間：紫色陰影（量縮為分盤所致，非真實冷卻）
         x0 = max(w["start"], df.index.min())
         x1 = min(w["end"], df.index.max())
         if x0 <= x1:
-            fig.add_vrect(x0=x0, x1=x1, fillcolor=_DISP_FILL, opacity=0.13,
-                          line_width=0, layer="below", row="all", col=1)
+            fig.add_vrect(
+                x0=x0, x1=x1, fillcolor=_DISP_FILL, opacity=0.13, line_width=0, layer="below", row="all", col=1
+            )
     return fig
 
 
@@ -185,16 +217,25 @@ def _add_subchart(fig, df, sub_chart_type, display_vol, vol_colors) -> None:
     if sub_chart_type in ("成交量", _DUAL_TYPE):
         fig.add_trace(go.Bar(x=df.index, y=display_vol, marker_color=vol_colors, opacity=0.4), row=2, col=1)
         for w, color in _SUB_MA_COLORS.items():
-            fig.add_trace(go.Scatter(x=df.index, y=df[f"Vol_MA{w}"] / 1000, mode="lines",
-                                     line=dict(color=color, width=1.0)), row=2, col=1)
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df[f"Vol_MA{w}"] / 1000, mode="lines", line={"color": color, "width": 1.0}),
+                row=2,
+                col=1,
+            )
     if sub_chart_type == _TURN_TYPE:
         fig.add_trace(go.Bar(x=df.index, y=df["Turnover"] / div, marker_color=_TURN_BAR, opacity=0.5), row=2, col=1)
         for w, color in _SUB_MA_COLORS.items():
-            fig.add_trace(go.Scatter(x=df.index, y=df[f"Turn_MA{w}"] / div, mode="lines",
-                                     line=dict(color=color, width=1.0)), row=2, col=1)
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df[f"Turn_MA{w}"] / div, mode="lines", line={"color": color, "width": 1.0}),
+                row=2,
+                col=1,
+            )
     if sub_chart_type == _DUAL_TYPE:
-        fig.add_trace(go.Scatter(x=df.index, y=df["Turnover"] / div, mode="lines",
-                                 line=dict(color=_DUAL_LINE, width=1.2)), row=2, col=1)
+        fig.add_trace(
+            go.Scatter(x=df.index, y=df["Turnover"] / div, mode="lines", line={"color": _DUAL_LINE, "width": 1.2}),
+            row=2,
+            col=1,
+        )
         # add_trace(row=2) 會把 yaxis 覆寫為 y2，須事後改指到疊加軸 y3
         fig.data[-1].update(yaxis="y3")
-        fig.update_layout(yaxis3=dict(overlaying="y2", side="right", showgrid=False))
+        fig.update_layout(yaxis3={"overlaying": "y2", "side": "right", "showgrid": False})

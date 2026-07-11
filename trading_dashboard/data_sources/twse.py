@@ -3,6 +3,7 @@
 以「成交金額(turnover value)」排序取上市前 N。
 唯一含全市場成交金額的來源是 STOCK_DAY_ALL（CSV 輸出）。
 """
+
 from __future__ import annotations
 
 import csv

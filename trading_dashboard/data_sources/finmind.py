@@ -1,4 +1,5 @@
 """FinMind 個股 / 大盤日線資料抓取。"""
+
 from __future__ import annotations
 
 import logging
@@ -9,8 +10,8 @@ import pandas as pd
 import streamlit as st
 from FinMind.data import DataLoader
 
-from ..config import BENCHMARK_TTL, FINMIND_TTL, parse_stock_id
 from .. import indicators
+from ..config import BENCHMARK_TTL, FINMIND_TTL, parse_stock_id
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +43,16 @@ def fetch_finmind_data(ticker: str, start: str, end: str) -> pd.DataFrame | None
     if df is None or df.empty:
         return None
 
-    df = df.rename(columns={
-        "open": "Open", "max": "High", "min": "Low", "close": "Close",
-        "Trading_Volume": "Volume", "Trading_money": "Turnover",
-    })
+    df = df.rename(
+        columns={
+            "open": "Open",
+            "max": "High",
+            "min": "Low",
+            "close": "Close",
+            "Trading_Volume": "Volume",
+            "Trading_money": "Turnover",
+        }
+    )
 
     # 量 / 額互補；皆缺時以 NaN 表示（不再偽造固定 1,000,000 量能）
     if "Turnover" not in df.columns:

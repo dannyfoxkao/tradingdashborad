@@ -3,6 +3,7 @@
 os.replace 僅在同一磁碟區為原子操作（Windows/POSIX 皆然），
 因此暫存檔必須與目標檔同目錄。失敗時保留原檔並清除暫存檔。
 """
+
 from __future__ import annotations
 
 import logging

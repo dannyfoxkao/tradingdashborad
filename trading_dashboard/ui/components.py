@@ -1,4 +1,5 @@
 """共用 UI 元件與小工具（徽章、漲跌標籤、rangebreaks 快取）。"""
+
 from __future__ import annotations
 
 import html
@@ -34,10 +35,7 @@ def price_badge(close: float, prev_close: float) -> str:
         color, body = PRICE_DOWN, f"{close:.2f} ({diff:.2f}  {pct:.2f}%)"
     else:
         color, body = PRICE_FLAT, f"{close:.2f} (0.00  0.00%)"
-    return (
-        f'<span style="color:{color}; font-weight:bold; font-size:14px; '
-        f'margin-left:8px;">{body}</span>'
-    )
+    return f'<span style="color:{color}; font-weight:bold; font-size:14px; margin-left:8px;">{body}</span>'
 
 
 def get_rangebreaks(index: pd.DatetimeIndex) -> list[str]:
