@@ -2,6 +2,7 @@
 
 帳本累積每檔股票進入全市場成交值前 N 的天數，並以 buffer 緩衝短暫掉榜。
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,8 +13,13 @@ from .config import LEADERBOARD_BUFFER_DAYS, LEADERBOARD_FILE
 from .persistence import atomic_write_csv
 
 LEDGER_COLUMNS = [
-    "stock_id", "name", "cumulative_days", "last_seen_date",
-    "buffer_days", "market", "turnover_billion",
+    "stock_id",
+    "name",
+    "cumulative_days",
+    "last_seen_date",
+    "buffer_days",
+    "market",
+    "turnover_billion",
 ]
 
 
@@ -51,41 +57,50 @@ def update_leaderboard_data(
         sid = row["stock_id"]
         if sid in today_ids:
             t_row = today_df[today_df["stock_id"] == sid].iloc[0]
-            updated_rows.append({
-                "stock_id": sid, "name": row["name"],
-                "cumulative_days": int(row["cumulative_days"]) + 1,
-                "last_seen_date": current_date_str,
-                "buffer_days": 0,
-                "market": t_row["market"],
-                "turnover_billion": t_row["turnover_billion"],
-            })
+            updated_rows.append(
+                {
+                    "stock_id": sid,
+                    "name": row["name"],
+                    "cumulative_days": int(row["cumulative_days"]) + 1,
+                    "last_seen_date": current_date_str,
+                    "buffer_days": 0,
+                    "market": t_row["market"],
+                    "turnover_billion": t_row["turnover_billion"],
+                }
+            )
         else:
             buf_days = int(row["buffer_days"])
             last_date = str(row["last_seen_date"])
             if last_date != current_date_str:
                 buf_days += 1
             if buf_days <= LEADERBOARD_BUFFER_DAYS:
-                updated_rows.append({
-                    "stock_id": sid, "name": row["name"],
-                    "cumulative_days": int(row["cumulative_days"]),
-                    "last_seen_date": last_date,
-                    "buffer_days": buf_days,
-                    "market": str(row.get("market", "上市")),
-                    "turnover_billion": 0.0,
-                })
+                updated_rows.append(
+                    {
+                        "stock_id": sid,
+                        "name": row["name"],
+                        "cumulative_days": int(row["cumulative_days"]),
+                        "last_seen_date": last_date,
+                        "buffer_days": buf_days,
+                        "market": str(row.get("market", "上市")),
+                        "turnover_billion": 0.0,
+                    }
+                )
 
     old_ids = df_old["stock_id"].tolist() if not df_old.empty else []
     for _, row in today_df.iterrows():
         sid = row["stock_id"]
         if sid not in old_ids:
-            updated_rows.append({
-                "stock_id": sid, "name": row["name"],
-                "cumulative_days": 1,
-                "last_seen_date": current_date_str,
-                "buffer_days": 0,
-                "market": row["market"],
-                "turnover_billion": row["turnover_billion"],
-            })
+            updated_rows.append(
+                {
+                    "stock_id": sid,
+                    "name": row["name"],
+                    "cumulative_days": 1,
+                    "last_seen_date": current_date_str,
+                    "buffer_days": 0,
+                    "market": row["market"],
+                    "turnover_billion": row["turnover_billion"],
+                }
+            )
 
     df_new = pd.DataFrame(updated_rows, columns=LEDGER_COLUMNS)
     atomic_write_csv(df_new, path)

@@ -2,6 +2,7 @@
 
 新版櫃買回傳格式為 ``{"tables":[{"fields":[...], "data":[...]}, ...]}``。
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,10 +16,7 @@ from .turnover import build_record, finalize_pool, find_column, is_common_stock
 
 logger = logging.getLogger(__name__)
 
-DAILY_CLOSE_URL = (
-    "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/"
-    "stk_quote_result.php"
-)
+DAILY_CLOSE_URL = "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php"
 
 _DEFAULT_AMOUNT_COL = 9  # 新版於 index 9：成交金額(元)
 

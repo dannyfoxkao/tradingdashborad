@@ -1,4 +1,5 @@
 """chart_grid 純函式（HTML 面板、Plotly 圖）的單元測試。"""
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -10,11 +11,17 @@ from trading_dashboard.ui import chart_grid
 def _make_df(n: int = 70) -> pd.DataFrame:
     idx = pd.bdate_range("2026-01-01", periods=n)
     close = np.linspace(100.0, 130.0, n)
-    df = pd.DataFrame({
-        "Open": close - 1, "High": close + 2, "Low": close - 2, "Close": close,
-        "Volume": np.full(n, 1_000_000.0),
-        "Turnover": close * 1_000_000.0,
-    }, index=idx)
+    df = pd.DataFrame(
+        {
+            "Open": close - 1,
+            "High": close + 2,
+            "Low": close - 2,
+            "Close": close,
+            "Volume": np.full(n, 1_000_000.0),
+            "Turnover": close * 1_000_000.0,
+        },
+        index=idx,
+    )
     return indicators.enrich(df)
 
 

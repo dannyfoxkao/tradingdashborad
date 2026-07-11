@@ -4,6 +4,7 @@
 全族群掃描可達數百檔、冷快取耗時上百秒且 UI 凍結。此處以執行緒池併發、
 並先以代號去重（同一檔在多族群重複出現只抓一次）。
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,9 +16,10 @@ import pandas as pd
 
 try:  # 將主執行緒的 Streamlit 執行情境附加到工作執行緒，避免快取失效與警告
     from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+
+    _HAS_ST_CTX = True
 except Exception:  # pragma: no cover - 不同 Streamlit 版本的保護
-    add_script_run_ctx = None
-    get_script_run_ctx = None
+    _HAS_ST_CTX = False
 
 from ..config import PREFETCH_MAX_WORKERS, parse_stock_id
 from .finmind import fetch_finmind_data
@@ -42,10 +44,10 @@ def prefetch_many(
     if not unique_ids:
         return {}
 
-    ctx = get_script_run_ctx() if get_script_run_ctx else None
+    ctx = get_script_run_ctx() if _HAS_ST_CTX else None
 
     def _worker(cid: str) -> tuple[str, pd.DataFrame | None]:
-        if ctx is not None and add_script_run_ctx is not None:
+        if ctx is not None:
             add_script_run_ctx(threading.current_thread(), ctx)
         try:
             return cid, fetch_fn(cid, start, end)

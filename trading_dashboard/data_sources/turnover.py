@@ -1,4 +1,5 @@
 """TWSE / TPEx 成交值排行的共用工具（DRY）。"""
+
 from __future__ import annotations
 
 from ..config import HUNDRED_MILLION, TOP_N

@@ -1,4 +1,5 @@
 """熱錢霸榜排行看板（上市 + 上櫃 雙拼版）。"""
+
 from __future__ import annotations
 
 import streamlit as st
@@ -26,10 +27,7 @@ def _refresh() -> None:
             update_leaderboard_data(combined, trading_date)
             n_twse = len(twse_top20) if twse_top20 else 0
             n_tpex = len(tpex_top20) if tpex_top20 else 0
-            st.success(
-                f"上市櫃數據混合成功！對齊交易日：{trading_date}"
-                f"（上市 {n_twse} 檔 + 上櫃 {n_tpex} 檔）"
-            )
+            st.success(f"上市櫃數據混合成功！對齊交易日：{trading_date}（上市 {n_twse} 檔 + 上櫃 {n_tpex} 檔）")
             if not twse_top20:
                 st.warning("⚠️ 上市資料抓取失敗，本次僅含上櫃。")
             if not tpex_top20:

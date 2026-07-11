@@ -2,6 +2,7 @@
 
 本模組刻意不相依 Streamlit，方便單元測試。所有「魔術數字」皆於此命名集中。
 """
+
 from __future__ import annotations
 
 import json
@@ -22,10 +23,10 @@ LEADERBOARD_FILE: Path = BASE_DIR / "turnover_leaderboard.csv"
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 
 # ── 一般數值常數 ──
-HUNDRED_MILLION: float = 1e8        # 成交金額換算「億」
-TOP_N: int = 20                     # 上市/上櫃各取成交值前 N
-LEADERBOARD_BUFFER_DAYS: int = 2    # 連續未進榜可緩衝保留的天數
-MARKET_CLOSE_HOUR: int = 14         # 台股收盤 14:30
+HUNDRED_MILLION: float = 1e8  # 成交金額換算「億」
+TOP_N: int = 20  # 上市/上櫃各取成交值前 N
+LEADERBOARD_BUFFER_DAYS: int = 2  # 連續未進榜可緩衝保留的天數
+MARKET_CLOSE_HOUR: int = 14  # 台股收盤 14:30
 MARKET_CLOSE_MINUTE: int = 30
 
 # ── 快取存活秒數（TTL）──
@@ -34,7 +35,7 @@ BENCHMARK_TTL: int = 600
 DISPOSITION_TTL: int = 3600
 
 # ── 平行抓取 ──
-PREFETCH_MAX_WORKERS: int = 8       # 同時對 FinMind 的最大併發數（兼顧速率限制）
+PREFETCH_MAX_WORKERS: int = 8  # 同時對 FinMind 的最大併發數（兼顧速率限制）
 
 # ── 均線視窗 ──
 MA_WINDOWS: tuple[int, ...] = (5, 10, 20, 60)
@@ -43,24 +44,24 @@ TURN_MA_WINDOWS: tuple[int, ...] = (5, 20)
 VOL_STD_WINDOW: int = 20
 
 # ── 趨勢研判門檻 ──
-MIN_TREND_ROWS: int = 21            # 少於此列數視為資料不足（MA20 尚未成形）
-TREND_SLOPE_LOOKBACK: int = 6       # MA20 斜率回看天數
-TREND_FLAT_SLOPE: float = -0.1      # 震盪(偏多) 容許的輕微負斜率下限
+MIN_TREND_ROWS: int = 21  # 少於此列數視為資料不足（MA20 尚未成形）
+TREND_SLOPE_LOOKBACK: int = 6  # MA20 斜率回看天數
+TREND_FLAT_SLOPE: float = -0.1  # 震盪(偏多) 容許的輕微負斜率下限
 
 # ── 量能研判門檻（量比 vr 與 Z-Score）──
-VOL_SURGE_RATIO: float = 2.5        # 爆量
+VOL_SURGE_RATIO: float = 2.5  # 爆量
 VOL_SURGE_Z: float = 2.0
-VOL_UP_RATIO: float = 1.5           # 放量
-VOL_SHRINK_RATIO: float = 0.7       # 縮量
+VOL_UP_RATIO: float = 1.5  # 放量
+VOL_SHRINK_RATIO: float = 0.7  # 縮量
 VOL_SHRINK_Z: float = -1.0
-VOL_BASE_WINDOW: int = 20           # 量能基準：近 N 個非處置交易日均量
+VOL_BASE_WINDOW: int = 20  # 量能基準：近 N 個非處置交易日均量
 
 # ── 相對大盤 Alpha ──
-ALPHA_WINDOW: int = 21              # 計算超額報酬的視窗（含起點，故 21 列得 20 日報酬）
+ALPHA_WINDOW: int = 21  # 計算超額報酬的視窗（含起點，故 21 列得 20 日報酬）
 ALPHA_BETA_MIN: float = 0.0
 ALPHA_BETA_MAX: float = 3.0
-ALPHA_STRONG: float = 5.0           # 顯著領先
-ALPHA_LAG: float = -5.0             # 顯著落後
+ALPHA_STRONG: float = 5.0  # 顯著領先
+ALPHA_LAG: float = -5.0  # 顯著落後
 
 # ── 對外請求預設標頭 ──
 DEFAULT_HEADERS: dict[str, str] = {
@@ -85,9 +86,7 @@ def configure_logging(level: int = logging.INFO) -> None:
     root = logging.getLogger("trading_dashboard")
     if not root.handlers:
         handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
         root.addHandler(handler)
     root.setLevel(level)
 
@@ -125,7 +124,7 @@ def load_stock_config(path: Path | str = CONFIG_PATH) -> dict[str, dict[str, str
         raise ConfigError(f"找不到設定檔：{path}")
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         raise ConfigError(f"設定檔 JSON 格式錯誤：{e}") from e
@@ -144,6 +143,4 @@ def _validate_stock_config(data: object) -> None:
             raise ConfigError(f"族群「{group}」的內容必須是非空物件 {{代號: 名稱}}。")
         for ticker, name in members.items():
             if not isinstance(ticker, str) or not isinstance(name, str):
-                raise ConfigError(
-                    f"族群「{group}」中存在非字串的代號或名稱：{ticker!r} → {name!r}。"
-                )
+                raise ConfigError(f"族群「{group}」中存在非字串的代號或名稱：{ticker!r} → {name!r}。")

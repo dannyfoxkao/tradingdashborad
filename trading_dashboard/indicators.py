@@ -2,16 +2,29 @@
 
 網格牆與選股雷達共用同一套研判邏輯，確保不分歧。皆為純函式，可單元測試。
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
 from .config import (
-    ALPHA_BETA_MAX, ALPHA_BETA_MIN, ALPHA_WINDOW,
-    MA_WINDOWS, MIN_TREND_ROWS, TREND_FLAT_SLOPE, TREND_SLOPE_LOOKBACK,
-    TURN_MA_WINDOWS, VOL_BASE_WINDOW, VOL_MA_WINDOWS, VOL_STD_WINDOW,
-    VOL_SHRINK_RATIO, VOL_SHRINK_Z, VOL_SURGE_RATIO, VOL_SURGE_Z, VOL_UP_RATIO,
+    ALPHA_BETA_MAX,
+    ALPHA_BETA_MIN,
+    ALPHA_WINDOW,
+    MA_WINDOWS,
+    MIN_TREND_ROWS,
+    TREND_FLAT_SLOPE,
+    TREND_SLOPE_LOOKBACK,
+    TURN_MA_WINDOWS,
+    VOL_BASE_WINDOW,
+    VOL_MA_WINDOWS,
+    VOL_SHRINK_RATIO,
+    VOL_SHRINK_Z,
+    VOL_STD_WINDOW,
+    VOL_SURGE_RATIO,
+    VOL_SURGE_Z,
+    VOL_UP_RATIO,
 )
 
 INSUFFICIENT_TREND = {"label": "資料不足", "bg": "#37474f", "icon": "⏳", "rank": 5, "slope": 0.0}
@@ -66,9 +79,7 @@ def compute_alpha(df: pd.DataFrame | None, bench: pd.DataFrame | None) -> tuple[
     """Beta 調整後 20 日超額報酬，回傳 (alpha_val, beta)；資料不足回傳 (None, None)。"""
     if bench is None or df is None or len(bench) < ALPHA_WINDOW:
         return None, None
-    joined = df[["Close"]].join(
-        bench[["Close"]].rename(columns={"Close": "Bench"}), how="inner"
-    ).dropna()
+    joined = df[["Close"]].join(bench[["Close"]].rename(columns={"Close": "Bench"}), how="inner").dropna()
     if len(joined) < ALPHA_WINDOW:
         return None, None
     win = joined.iloc[-ALPHA_WINDOW:]
@@ -88,10 +99,7 @@ def classify_volume(latest_vol: float, base_vol: float, vol_ma20: float, vol_std
         return {"label": "量能不明", "bg": "#424242", "icon": "❔", "vr": float("nan"), "z": 0.0}
 
     vr = (latest_vol / base_vol) if base_vol > 0 else 1.0
-    if pd.notna(vol_std20) and vol_std20 > 0:
-        z = (latest_vol - vol_ma20) / vol_std20
-    else:
-        z = 0.0
+    z = (latest_vol - vol_ma20) / vol_std20 if pd.notna(vol_std20) and vol_std20 > 0 else 0.0
 
     if vr >= VOL_SURGE_RATIO or z >= VOL_SURGE_Z:
         label, bg, icon = f"爆量 x{vr:.1f}", "#c62828", "💥"

@@ -26,5 +26,5 @@ def test_prefetch_isolates_single_failure():
         return "ok"
 
     out = pf.prefetch_many(["2330.TW", "2454.TW"], "s", "e", fetch_fn=flaky)
-    assert out["2330"] is None     # 單檔失敗轉為 None，不拖垮整批
+    assert out["2330"] is None  # 單檔失敗轉為 None，不拖垮整批
     assert out["2454"] == "ok"

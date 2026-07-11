@@ -27,19 +27,26 @@ def test_cumulative_increments_when_seen_again(tmp_path):
 
 def test_buffer_expiry_removes_after_grace(tmp_path):
     p = tmp_path / "lb.csv"
-    update_leaderboard_data([_rec("2330")], "20260626", p)   # 2330 進榜
-    update_leaderboard_data([_rec("9999")], "20260627", p)   # 缺席 buf=1
-    update_leaderboard_data([_rec("9999")], "20260630", p)   # 缺席 buf=2
+    update_leaderboard_data([_rec("2330")], "20260626", p)  # 2330 進榜
+    update_leaderboard_data([_rec("9999")], "20260627", p)  # 缺席 buf=1
+    update_leaderboard_data([_rec("9999")], "20260630", p)  # 缺席 buf=2
     df = update_leaderboard_data([_rec("9999")], "20260701", p)  # 缺席 buf=3 → 移除
     assert "2330" not in df["stock_id"].tolist()
 
 
 def test_legacy_csv_missing_columns_is_migrated(tmp_path):
     p = tmp_path / "lb.csv"
-    legacy = pd.DataFrame([{
-        "stock_id": "2330", "name": "台積電",
-        "cumulative_days": 5, "last_seen_date": "20260620", "buffer_days": 0,
-    }])
+    legacy = pd.DataFrame(
+        [
+            {
+                "stock_id": "2330",
+                "name": "台積電",
+                "cumulative_days": 5,
+                "last_seen_date": "20260620",
+                "buffer_days": 0,
+            }
+        ]
+    )
     legacy.to_csv(p, index=False, encoding="utf-8")
 
     loaded = load_leaderboard(p)
