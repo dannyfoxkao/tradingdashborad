@@ -1,0 +1,42 @@
+# 工具設定的唯一家（依賴仍由 requirements*.txt 管理 = Streamlit 部署慣例）
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "RUF", # ruff 專屬規則
+]
+# E501：ui 模組的 HTML 模板字串必然超長，formatter 無法安全折行字串
+ignore = ["E501"]
+
+[tool.mypy]
+# 溫和模式：碼庫尚未全面型別註記，先檢查既有註記與明顯錯誤
+python_version = "3.10"
+ignore_missing_imports = true   # FinMind / plotly 無 stubs
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+exclude = ["\\.venv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 不放 --cov：保持單測迭代速度；覆蓋率由 CI 與手動 pytest --cov 把關
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["trading_dashboard"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
