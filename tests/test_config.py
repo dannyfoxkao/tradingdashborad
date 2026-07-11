@@ -1,0 +1,52 @@
+import json
+
+import pytest
+
+from trading_dashboard.config import ConfigError, load_stock_config, parse_stock_id
+
+
+@pytest.mark.parametrize("ticker, expected", [
+    ("2330.TW", "2330"),
+    ("5347.TWO", "5347"),
+    ("TAIEX", "TAIEX"),
+    (" 2330.TW ", "2330"),
+])
+def test_parse_stock_id(ticker, expected):
+    assert parse_stock_id(ticker) == expected
+
+
+def _write(tmp_path, payload):
+    p = tmp_path / "stock_config.json"
+    p.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return p
+
+
+def test_load_stock_config_valid(tmp_path):
+    p = _write(tmp_path, {"大盤": {"2330.TW": "台積電", "2454.TW": "聯發科"}})
+    cfg = load_stock_config(p)
+    assert cfg["大盤"]["2330.TW"] == "台積電"
+
+
+def test_load_stock_config_missing_file(tmp_path):
+    with pytest.raises(ConfigError):
+        load_stock_config(tmp_path / "nope.json")
+
+
+def test_load_stock_config_bad_json(tmp_path):
+    p = tmp_path / "stock_config.json"
+    p.write_text("{not valid json", encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load_stock_config(p)
+
+
+@pytest.mark.parametrize("payload", [
+    {},                                  # 空 dict
+    [],                                  # 非 dict 頂層
+    {"A": []},                           # 族群值非 dict
+    {"A": {}},                           # 族群為空
+    {"A": {"2330.TW": 123}},             # 名稱非字串
+])
+def test_load_stock_config_invalid_structure(tmp_path, payload):
+    p = _write(tmp_path, payload)
+    with pytest.raises(ConfigError):
+        load_stock_config(p)

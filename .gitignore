@@ -1,0 +1,28 @@
+# 執行期產物（runtime artifact）：熱錢排行帳本，每次刷新都會變動
+turnover_leaderboard.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# 虛擬環境
+.venv/
+venv/
+env/
+
+# 測試 / 覆蓋率
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# 環境變數（含 FINMIND_TOKEN 等機密）
+.env
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

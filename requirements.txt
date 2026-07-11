@@ -1,0 +1,14 @@
+# 執行時相依套件（Runtime dependencies）
+streamlit>=1.30,<2
+pandas>=2.0,<3
+numpy>=1.24,<3
+plotly>=5.18,<6
+requests>=2.31,<3
+FinMind>=1.7,<2
+tqdm>=4.66          # FinMind 的相依套件，但其 metadata 未必會自動帶入
+# Windows 上 zoneinfo 需要 IANA 時區資料庫（Linux/macOS 多已內建）
+tzdata>=2024.1
+# Streamlit 1.58 的伺服器以 Starlette/anyio 提供靜態檔；Python 3.14 需 anyio>=4.14
+# 並確保其相依 sniffio 存在，否則靜態資源會 500（weakref to NoneType）
+anyio>=4.14
+sniffio>=1.3

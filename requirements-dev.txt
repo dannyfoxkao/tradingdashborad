@@ -1,0 +1,4 @@
+# 開發/測試相依套件（Development dependencies）
+-r requirements.txt
+pytest>=8.0,<9
+pytest-cov>=5.0
