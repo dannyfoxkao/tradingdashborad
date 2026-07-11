@@ -9,6 +9,7 @@ from ..config import BULL_LABELS, parse_stock_id
 from ..data_sources.disposition import is_in_disposition
 from ..data_sources.prefetch import prefetch_many
 from ..indicators import classify_trend, compute_alpha
+from ..persistence import to_csv_bytes
 from ..signals import evaluate_signals
 
 
@@ -20,22 +21,26 @@ def render(group_choice, selected_stocks, stocks_pool, start_str, end_str, bench
         with c2:
             run_scan = st.button("🛰️ 開始掃描")
 
-        if not run_scan:
+        if run_scan:
+            if scan_scope == "本族群":
+                scope_items = [(group_choice, t, n) for t, n in selected_stocks.items()]
+            else:
+                scope_items = [(g, t, n) for g, d in stocks_pool.items() for t, n in d.items()]
+
+            # 先平行預抓（同代號去重，只抓一次）
+            prog = st.progress(0.0, text="抓取中...")
+            data = prefetch_many([t for _, t, _ in scope_items], start_str, end_str, progress=prog)
+            prog.empty()
+
+            # 結果進 session_state：download_button 等互動觸發 rerun 後結果不消失
+            st.session_state["radar_rows"] = _scan_rows(scope_items, data, benchmark_df, disposition_map)
+            st.session_state["radar_scan_date"] = end_str
+
+        rows = st.session_state.get("radar_rows")
+        if rows is None:
             st.caption("選擇範圍後按「開始掃描」，將篩出趨勢為 🟢強多 / 🌱底部翻揚 / 🟡震盪偏多 的個股並依強度排序。")
             return
-
-        if scan_scope == "本族群":
-            scope_items = [(group_choice, t, n) for t, n in selected_stocks.items()]
-        else:
-            scope_items = [(g, t, n) for g, d in stocks_pool.items() for t, n in d.items()]
-
-        # 先平行預抓（同代號去重，只抓一次）
-        prog = st.progress(0.0, text="抓取中...")
-        data = prefetch_many([t for _, t, _ in scope_items], start_str, end_str, progress=prog)
-        prog.empty()
-
-        rows = _scan_rows(scope_items, data, benchmark_df, disposition_map)
-        _show_results(rows)
+        _show_results(rows, st.session_state.get("radar_scan_date", ""))
 
 
 def _scan_rows(scope_items, data, benchmark_df, disposition_map) -> list[dict]:
@@ -70,7 +75,7 @@ def _scan_rows(scope_items, data, benchmark_df, disposition_map) -> list[dict]:
     return rows
 
 
-def _show_results(rows: list[dict]) -> None:
+def _show_results(rows: list[dict], scan_date: str) -> None:
     if not rows:
         st.info("本次掃描沒有符合『強多／底部翻揚／震盪偏多』的標的。")
         return
@@ -87,3 +92,10 @@ def _show_results(rows: list[dict]) -> None:
         f"掃描完成：共 {len(res)} 檔（🟢 強多 {n_strong}／🌱 底部翻揚 {n_bottom}／🟡 震盪偏多 {n_mid}）｜由強至弱排序"
     )
     st.dataframe(res, use_container_width=True, hide_index=True)
+    st.download_button(
+        "⬇️ 匯出 CSV",
+        data=to_csv_bytes(res),
+        file_name=f"radar_{scan_date}.csv",
+        mime="text/csv",
+        key="radar_export",
+    )

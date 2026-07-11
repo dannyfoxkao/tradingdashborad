@@ -90,3 +90,9 @@ def test_buttons_drive_panels(monkeypatch):
 
     assert not at.exception
     assert len(at.dataframe) >= 1  # 排行或雷達表格已渲染
+    assert at.session_state["radar_rows"]  # 掃描結果進 session_state
+
+    # 再 rerun 一次（模擬 download_button 等互動）→ 雷達結果不消失
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["radar_rows"]

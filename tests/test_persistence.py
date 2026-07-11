@@ -1,9 +1,22 @@
-"""persistence 原子寫入的單元測試。"""
+"""persistence 原子寫入與匯出的單元測試。"""
+
+import io
 
 import pandas as pd
 import pytest
 
-from trading_dashboard.persistence import atomic_write_csv, atomic_write_text
+from trading_dashboard.persistence import atomic_write_csv, atomic_write_text, to_csv_bytes
+
+
+def test_to_csv_bytes_has_bom_and_roundtrips():
+    df = pd.DataFrame({"代號": ["2330"], "名稱": ["台積電"], "收盤": [1000.0]})
+
+    data = to_csv_bytes(df)
+
+    assert data.startswith(b"\xef\xbb\xbf")  # UTF-8 BOM → Excel 直接開不亂碼
+    back = pd.read_csv(io.BytesIO(data), encoding="utf-8-sig", dtype={"代號": str})
+    assert back["代號"].tolist() == ["2330"]
+    assert back["名稱"].tolist() == ["台積電"]
 
 
 def test_atomic_write_csv_roundtrip(tmp_path):
