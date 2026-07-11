@@ -69,12 +69,12 @@ def fetch_finmind_data(ticker: str, start: str, end: str) -> pd.DataFrame | None
 
 
 @st.cache_data(ttl=BENCHMARK_TTL)
-def fetch_benchmark_data(start: str, end: str) -> pd.DataFrame | None:
-    """抓取大盤（TAIEX）作為 Alpha 計算基準；失敗回傳 None。"""
+def fetch_index_close(stock_id: str, start: str, end: str) -> pd.DataFrame | None:
+    """抓取指數（TAIEX 加權 / TPEx 櫃買）收盤序列；失敗回傳 None。"""
     try:
-        df = init_finmind().taiwan_stock_daily(stock_id="TAIEX", start_date=start, end_date=end)
+        df = init_finmind().taiwan_stock_daily(stock_id=stock_id, start_date=start, end_date=end)
     except Exception as e:
-        logger.warning("FinMind 大盤(TAIEX) 抓取失敗：%s", e)
+        logger.warning("FinMind 指數 %s 抓取失敗：%s", stock_id, e)
         return None
 
     if df is None or df.empty:
@@ -84,3 +84,8 @@ def fetch_benchmark_data(start: str, end: str) -> pd.DataFrame | None:
     df["date"] = pd.to_datetime(df["date"])
     df = df.set_index("date")
     return df[["Close"]]
+
+
+def fetch_benchmark_data(start: str, end: str) -> pd.DataFrame | None:
+    """抓取大盤（TAIEX）作為 Alpha 計算基準；失敗回傳 None。"""
+    return fetch_index_close("TAIEX", start, end)

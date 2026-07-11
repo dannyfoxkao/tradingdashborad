@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import streamlit as st
 
 from trading_dashboard.config import (
+    INDEX_LOOKBACK_DAYS,
     TZ_TAIPEI,
     ConfigError,
     configure_logging,
@@ -17,8 +18,8 @@ from trading_dashboard.config import (
     load_stock_config,
 )
 from trading_dashboard.data_sources.disposition import fetch_disposition_map
-from trading_dashboard.data_sources.finmind import fetch_benchmark_data
-from trading_dashboard.ui import chart_grid, leaderboard_panel, radar_panel
+from trading_dashboard.data_sources.finmind import fetch_benchmark_data, fetch_index_close
+from trading_dashboard.ui import chart_grid, leaderboard_panel, momentum_panel, radar_panel, weather_panel
 
 _SUB_CHART_OPTIONS = ["成交量", "成交金額 (估算)", "量 + 金額雙對比"]
 _PAGE_CSS = """
@@ -54,7 +55,17 @@ def main() -> None:
     leaderboard_panel.render()
     st.markdown("---")
 
-    # 2) 側邊欄監控設定
+    # 2) 大盤氣象台（指數固定回看 INDEX_LOOKBACK_DAYS 天，確保 MACD/月線成形）
+    now_taipei = datetime.now(TZ_TAIPEI)
+    mkt_start = (now_taipei - timedelta(days=INDEX_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    today_str = now_taipei.strftime("%Y-%m-%d")
+    weather_panel.render(
+        fetch_index_close("TAIEX", mkt_start, today_str),
+        fetch_index_close("TPEx", mkt_start, today_str),
+    )
+    st.markdown("---")
+
+    # 3) 側邊欄監控設定
     st.sidebar.header("⚙️ 專業級看盤監控")
     group_choice = st.sidebar.selectbox("選擇觀測族群", list(stocks_pool.keys()))
     st.title(f"🖥️ 監控板塊：{group_choice}")
@@ -64,17 +75,17 @@ def main() -> None:
     st.sidebar.header("📊 指標配置")
     sub_chart_type = st.sidebar.selectbox("副圖顯示內容", _SUB_CHART_OPTIONS)
 
-    # 3) 計算觀測區間（台灣時區）並抓取共用資料
-    end_date = datetime.now(TZ_TAIPEI)
-    start_date = end_date - timedelta(days=time_window)
-    start_str, end_str = start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+    # 4) 計算觀測區間（台灣時區）並抓取共用資料
+    start_date = now_taipei - timedelta(days=time_window)
+    start_str, end_str = start_date.strftime("%Y-%m-%d"), today_str
 
     benchmark_df = fetch_benchmark_data(start_str, end_str)
     disposition_map = fetch_disposition_map()
     selected_stocks = stocks_pool[group_choice]
 
-    # 4) 選股雷達 + K 線網格牆
+    # 5) 選股雷達 + 族群動能 + K 線網格牆
     radar_panel.render(group_choice, selected_stocks, stocks_pool, start_str, end_str, benchmark_df, disposition_map)
+    momentum_panel.render(list(selected_stocks.keys()), start_str, end_str)
     chart_grid.render(
         group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, end_str, benchmark_df, disposition_map
     )

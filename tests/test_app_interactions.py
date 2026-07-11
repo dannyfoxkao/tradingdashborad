@@ -10,6 +10,7 @@ import trading_dashboard.data_sources.finmind as finmind_mod
 import trading_dashboard.indicators as indicators
 import trading_dashboard.ui.chart_grid as chart_grid_mod
 import trading_dashboard.ui.leaderboard_panel as lb_mod
+import trading_dashboard.ui.momentum_panel as momentum_mod
 import trading_dashboard.ui.radar_panel as radar_mod
 from trading_dashboard.config import parse_stock_id
 
@@ -59,9 +60,11 @@ def test_buttons_drive_panels(monkeypatch):
         return {parse_stock_id(t): df for t in tickers}
 
     monkeypatch.setattr(finmind_mod, "fetch_benchmark_data", lambda s, e: bench)
+    monkeypatch.setattr(finmind_mod, "fetch_index_close", lambda sid, s, e: bench)
     monkeypatch.setattr(disp_mod, "fetch_disposition_map", lambda: {})
     monkeypatch.setattr(chart_grid_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(radar_mod, "prefetch_many", fake_prefetch)
+    monkeypatch.setattr(momentum_mod, "prefetch_many", fake_prefetch)
 
     # 熱錢排行：避免真的連網 / 寫入磁碟
     monkeypatch.setattr(
