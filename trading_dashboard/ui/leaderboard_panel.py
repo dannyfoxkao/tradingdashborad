@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import plotly.graph_objects as go
 import streamlit as st
 
+from ..config import LEADERBOARD_HISTORY_FILE
+from ..history import append_leaderboard_snapshot, build_history_matrix, load_history
 from ..leaderboard import load_leaderboard, update_leaderboard_data
 from ..market import fetch_market_top20_raw
 from ..persistence import to_csv_bytes
@@ -16,7 +19,11 @@ def render() -> None:
     with st.expander("🔥 全市場(上市+上櫃) 熱錢 Top 20 觀測站", expanded=False):
         if st.button("🔄 刷新最新熱錢排行"):
             _refresh()
-        _show_table()
+        tab_now, tab_history = st.tabs(["📋 目前排行", "📈 歷史趨勢"])
+        with tab_now:
+            _show_table()
+        with tab_history:
+            _show_history()
 
 
 def _refresh() -> None:
@@ -26,6 +33,7 @@ def _refresh() -> None:
 
         if combined and trading_date is not None:
             update_leaderboard_data(combined, trading_date)
+            append_leaderboard_snapshot(combined, trading_date)
             n_twse = len(twse_top20) if twse_top20 else 0
             n_tpex = len(tpex_top20) if tpex_top20 else 0
             status.update(
@@ -67,3 +75,28 @@ def _show_table() -> None:
         mime="text/csv",
         key="leaderboard_export",
     )
+
+
+def _show_history() -> None:
+    matrix = build_history_matrix(load_history(LEADERBOARD_HISTORY_FILE))
+    if matrix.empty:
+        st.info("歷史自部署日起累積，尚無資料。連續幾個交易日刷新後，這裡會出現上榜熱圖。")
+        return
+    fig = go.Figure(
+        go.Heatmap(
+            z=matrix.values,
+            x=[str(c) for c in matrix.columns],
+            y=list(matrix.index),
+            colorscale="YlOrRd",
+            colorbar={"title": "成交額(億)"},
+            hovertemplate="%{y}<br>%{x}：%{z:.1f} 億<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        template="plotly_dark",
+        height=max(320, 28 * len(matrix.index) + 120),
+        margin={"l": 10, "r": 10, "t": 20, "b": 10},
+        yaxis={"autorange": "reversed"},  # 上榜次數最多者在最上方
+    )
+    st.plotly_chart(fig, width="stretch", key="leaderboard_history_heatmap")
+    st.caption("顏色 = 當日成交額(億)；只顯示累計上榜次數前 20 的個股。歷史自部署日起累積。")
