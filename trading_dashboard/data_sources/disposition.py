@@ -14,6 +14,7 @@ import requests
 import streamlit as st
 
 from ..config import DISPOSITION_TTL
+from .http import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -69,12 +70,11 @@ def _add(result: dict, sid: str, start, end, measure_text: str, market: str) -> 
 @st.cache_data(ttl=DISPOSITION_TTL)
 def fetch_disposition_map() -> dict:
     """回傳 {stock_id: [{'start','end','measure','market'}, ...]}。"""
-    headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
     result: dict = {}
 
     # ── 上市 TWSE ──
     try:
-        r = requests.get(TWSE_PUNISH_URL, headers=headers, timeout=12)
+        r = get_session().get(TWSE_PUNISH_URL, timeout=12)
         for it in r.json():
             sid = str(it.get("Code", "")).strip()
             start, end = parse_period(it.get("DispositionPeriod", ""))
@@ -91,7 +91,7 @@ def fetch_disposition_map() -> dict:
 
     # ── 上櫃 TPEx ──
     try:
-        r = requests.get(TPEX_DISPOSAL_URL, headers=headers, timeout=12)
+        r = get_session().get(TPEX_DISPOSAL_URL, timeout=12)
         for it in r.json():
             sid = str(it.get("SecuritiesCompanyCode", "")).strip()
             start, end = parse_period(it.get("DispositionPeriod", ""))

@@ -9,12 +9,11 @@ from __future__ import annotations
 import csv
 import io
 import logging
-import random
-import time
 
 import requests
 
 from ..config import DEFAULT_HEADERS
+from .http import get_session
 from .turnover import build_record, finalize_pool, find_column, is_common_stock
 
 logger = logging.getLogger(__name__)
@@ -33,8 +32,7 @@ def fetch_twse_top20(headers: dict | None = None, date_str: str = "") -> tuple[l
     errors: list[str] = []
     try:
         url = f"{STOCK_DAY_ALL_URL}?response=json&date={date_str}"
-        time.sleep(random.uniform(0.3, 0.8))
-        r = requests.get(url, headers=headers, timeout=15)
+        r = get_session().get(url, headers=headers, timeout=15)
         if r.status_code != 200:
             raise requests.HTTPError(f"HTTP {r.status_code}")
 

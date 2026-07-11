@@ -91,6 +91,22 @@ ALPHA_BETA_MAX: float = 3.0
 ALPHA_STRONG: float = 5.0  # 顯著領先
 ALPHA_LAG: float = -5.0  # 顯著落後
 
+# ── HTTP 傳輸層（Session 重用 + 冪等 GET 重試）──
+HTTP_RETRY_TOTAL: int = 2
+HTTP_RETRY_BACKOFF: float = 0.3
+HTTP_RETRY_STATUS: tuple[int, ...] = (500, 502, 503, 504)
+
+# ── 市場排行抓取重試（交易日回走）──
+MARKET_FETCH_MAX_RETRY: int = 4
+MARKET_RETRY_JITTER: tuple[float, float] = (0.2, 0.8)  # 回走前的小抖動秒數
+
+# ── FinMind 輕量重試 ──
+FINMIND_RETRY_ATTEMPTS: int = 2
+FINMIND_RETRY_BACKOFF: float = 0.5  # 秒，線性遞增
+
+# ── UI 快取上限 ──
+RANGEBREAKS_CACHE_MAX: int = 256  # rangebreaks 快取筆數上限（滿了整批清除）
+
 # ── 對外請求預設標頭 ──
 DEFAULT_HEADERS: dict[str, str] = {
     "User-Agent": (
