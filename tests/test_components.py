@@ -34,3 +34,14 @@ def test_get_rangebreaks_is_cached_and_nonempty():
     second = components.get_rangebreaks(idx)
     assert first is second  # 命中快取，回傳同一物件
     assert len(first) > 0  # 週末確實被列為缺漏日
+
+
+def test_get_rangebreaks_cache_is_bounded(monkeypatch):
+    monkeypatch.setattr(components, "_RANGEBREAKS_CACHE", {})
+    monkeypatch.setattr(components, "RANGEBREAKS_CACHE_MAX", 5)
+
+    for i in range(6):  # 超過上限 → 觸發整批清除
+        idx = pd.date_range("2026-01-01", periods=10 + i, freq="B")
+        components.get_rangebreaks(idx)
+
+    assert len(components._RANGEBREAKS_CACHE) == 1  # 清除後只剩最新一筆

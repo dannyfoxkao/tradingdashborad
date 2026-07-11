@@ -19,20 +19,25 @@ def render() -> None:
 
 
 def _refresh() -> None:
-    with st.spinner("正在向 證交所 與 櫃買中心 安全調取雙拼數據..."):
-        twse_top20, tpex_top20, trading_date, error_logs = fetch_market_top20_raw()
+    with st.status("向 證交所 與 櫃買中心 調取排行…", expanded=True) as status:
+        twse_top20, tpex_top20, trading_date, error_logs = fetch_market_top20_raw(on_stage=st.write)
         combined = (twse_top20 or []) + (tpex_top20 or [])
 
-        if combined:
+        if combined and trading_date is not None:
             update_leaderboard_data(combined, trading_date)
             n_twse = len(twse_top20) if twse_top20 else 0
             n_tpex = len(tpex_top20) if tpex_top20 else 0
-            st.success(f"上市櫃數據混合成功！對齊交易日：{trading_date}（上市 {n_twse} 檔 + 上櫃 {n_tpex} 檔）")
+            status.update(
+                label=f"完成！對齊交易日：{trading_date}（上市 {n_twse} 檔 + 上櫃 {n_tpex} 檔）",
+                state="complete",
+                expanded=False,
+            )
             if not twse_top20:
                 st.warning("⚠️ 上市資料抓取失敗，本次僅含上櫃。")
             if not tpex_top20:
                 st.warning("⚠️ 上櫃資料抓取失敗，本次僅含上市。")
         else:
+            status.update(label="無法取得排行資料", state="error")
             st.error("❌ 無法從交易所獲取雙拼排行 (可能正處於深夜伺服器清算維護期)")
             st.info("💡 系統已自動啟動【本地備援機制】，維持顯示歷史累積的強勢股名單。")
             st.warning("狀態明細：")

@@ -70,7 +70,7 @@ def test_buttons_drive_panels(monkeypatch):
     monkeypatch.setattr(
         lb_mod,
         "fetch_market_top20_raw",
-        lambda: (
+        lambda **kwargs: (
             [{"stock_id": "2330", "name": "台積電", "turnover_billion": 100.0, "market": "上市"}],
             [],
             "20260626",
