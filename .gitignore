@@ -2,6 +2,7 @@
 turnover_leaderboard.csv
 leaderboard_history.csv
 signals_history.csv
+stock_config.json.bak
 
 # Python
 __pycache__/

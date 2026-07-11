@@ -8,8 +8,11 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shutil
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+from .persistence import atomic_write_text
 
 # ──────────────────────────────────────────────────────────────────
 # 路徑：錨定於專案根目錄（本檔位於 <root>/trading_dashboard/config.py）
@@ -149,6 +152,30 @@ def parse_stock_id(ticker: str) -> str:
 TICKER_RE = re.compile(r"^\d{4,6}[A-Z]?$")
 # 已知指數代號：非個股但屬合法設定（供大盤基準/氣象台使用）
 KNOWN_INDEX_IDS: frozenset[str] = frozenset({"TAIEX", "TPEx"})
+
+
+def classify_ticker(ticker: str) -> str:
+    """ticker 三分類：'stock'（個股）/'index'（已知指數）/'invalid'（格式無效）。"""
+    clean = parse_stock_id(ticker)
+    if clean in KNOWN_INDEX_IDS:
+        return "index"
+    if TICKER_RE.match(clean):
+        return "stock"
+    return "invalid"
+
+
+def save_stock_config(data: dict[str, dict[str, str]], path: Path | str = CONFIG_PATH) -> None:
+    """驗證後原子性寫回設定檔；首次寫入前建立一次性 .bak 備份。
+
+    驗證失敗直接拋出 :class:`ConfigError`，原檔分毫不動——保證任何
+    編輯操作都不可能產生載入不了的設定檔。
+    """
+    _validate_stock_config(data)
+    path = Path(path)
+    bak = path.with_name(path.name + ".bak")
+    if path.exists() and not bak.exists():
+        shutil.copyfile(path, bak)  # 只保「最初」版本，之後不覆蓋
+    atomic_write_text(path, json.dumps(data, ensure_ascii=False, indent=2))
 
 
 def find_malformed_ids(stocks_pool: dict[str, dict[str, str]]) -> list[str]:

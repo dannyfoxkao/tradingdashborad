@@ -9,6 +9,7 @@ import trading_dashboard.data_sources.disposition as disp_mod
 import trading_dashboard.data_sources.finmind as finmind_mod
 import trading_dashboard.indicators as indicators
 import trading_dashboard.ui.chart_grid as chart_grid_mod
+import trading_dashboard.ui.config_editor as editor_mod
 import trading_dashboard.ui.leaderboard_panel as lb_mod
 import trading_dashboard.ui.momentum_panel as momentum_mod
 import trading_dashboard.ui.radar_panel as radar_mod
@@ -84,6 +85,8 @@ def test_buttons_drive_panels(monkeypatch):
     monkeypatch.setattr(lb_mod, "load_history", lambda *a, **k: None)
     monkeypatch.setattr(radar_mod, "append_signal_snapshot", lambda rows, date: None)
     monkeypatch.setattr(radar_mod, "load_history", lambda *a, **k: None)
+    # 族群編輯器的存檔擋掉（點擊全部按鈕時不得改寫真實 stock_config.json）
+    monkeypatch.setattr(editor_mod, "save_stock_config", lambda data, path=None: None)
 
     at = AppTest.from_file(APP_PATH).run(timeout=60)
     assert not at.exception

@@ -4,9 +4,11 @@ import pytest
 
 from trading_dashboard.config import (
     ConfigError,
+    classify_ticker,
     find_malformed_ids,
     load_stock_config,
     parse_stock_id,
+    save_stock_config,
 )
 
 
@@ -83,3 +85,59 @@ def test_find_malformed_ids_dedupes_repeated_ticker():
     pool = {"a": {"XXX.TW": "壞"}, "b": {"XXX.TW": "壞"}}
 
     assert find_malformed_ids(pool) == ["XXX.TW"]
+
+
+# ── classify_ticker（族群編輯器輸入驗證）──
+
+
+@pytest.mark.parametrize(
+    "ticker, expected",
+    [
+        ("2330.TW", "stock"),
+        ("5347.TWO", "stock"),
+        ("00981A.TW", "stock"),
+        ("TAIEX", "index"),
+        ("TPEx", "index"),
+        ("233O.TW", "invalid"),  # 字母 O 打錯
+        ("ABC", "invalid"),
+        ("", "invalid"),
+    ],
+)
+def test_classify_ticker(ticker, expected):
+    assert classify_ticker(ticker) == expected
+
+
+# ── save_stock_config（驗證 → 一次性備份 → 原子寫入）──
+
+
+def test_save_stock_config_roundtrip(tmp_path):
+    path = tmp_path / "stock_config.json"
+    data = {"族群A": {"2330.TW": "台積電"}}
+
+    save_stock_config(data, path)
+
+    assert load_stock_config(path) == data
+
+
+def test_save_stock_config_invalid_leaves_file_untouched(tmp_path):
+    path = _write(tmp_path, {"族群A": {"2330.TW": "台積電"}})
+    original = path.read_bytes()
+
+    with pytest.raises(ConfigError):
+        save_stock_config({"壞族群": {}}, path)  # 空族群 → 驗證失敗
+
+    assert path.read_bytes() == original
+    assert not path.with_name(path.name + ".bak").exists()  # 失敗不留備份
+
+
+def test_save_stock_config_backup_created_once(tmp_path):
+    path = _write(tmp_path, {"原始": {"2330.TW": "台積電"}})
+    bak = path.with_name(path.name + ".bak")
+
+    save_stock_config({"第一版": {"2330.TW": "台積電"}}, path)
+    first_bak = bak.read_bytes()
+    save_stock_config({"第二版": {"2454.TW": "聯發科"}}, path)
+
+    assert bak.exists()
+    assert bak.read_bytes() == first_bak  # 備份只建一次（保最初版本）
+    assert "原始" in json.loads(first_bak.decode("utf-8"))  # 備份的是最初內容
