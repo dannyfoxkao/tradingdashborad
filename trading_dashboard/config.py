@@ -38,7 +38,7 @@ PREFETCH_MAX_WORKERS: int = 8       # 同時對 FinMind 的最大併發數（兼
 # ── 均線視窗 ──
 MA_WINDOWS: tuple[int, ...] = (5, 10, 20, 60)
 VOL_MA_WINDOWS: tuple[int, ...] = (5, 20)
-TURN_MA_WINDOWS: tuple[int, ...] = (5, 20, 60)
+TURN_MA_WINDOWS: tuple[int, ...] = (5, 20)
 VOL_STD_WINDOW: int = 20
 
 # ── 趨勢研判門檻 ──
