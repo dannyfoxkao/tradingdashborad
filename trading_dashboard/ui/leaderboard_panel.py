@@ -6,6 +6,7 @@ import streamlit as st
 
 from ..leaderboard import load_leaderboard, update_leaderboard_data
 from ..market import fetch_market_top20_raw
+from ..persistence import to_csv_bytes
 
 _DISPLAY_COLUMNS = ["market", "stock_id", "name", "cumulative_days", "turnover_billion", "last_seen_date"]
 _DISPLAY_HEADERS = ["所屬市場", "股票代號", "股票名稱", "🔥 累計進榜(天)", "今日成交額(億)", "最後進榜日"]
@@ -55,6 +56,14 @@ def _show_table() -> None:
         return
 
     df = df.sort_values(by="cumulative_days", ascending=False).reset_index(drop=True)
-    df = df[_DISPLAY_COLUMNS]
-    df.columns = _DISPLAY_HEADERS
-    st.dataframe(df, use_container_width=True)
+    latest_date = str(df["last_seen_date"].max())
+    display = df[_DISPLAY_COLUMNS].copy()
+    display.columns = _DISPLAY_HEADERS
+    st.dataframe(display, use_container_width=True)
+    st.download_button(
+        "⬇️ 匯出 CSV",
+        data=to_csv_bytes(display),
+        file_name=f"leaderboard_{latest_date}.csv",
+        mime="text/csv",
+        key="leaderboard_export",
+    )

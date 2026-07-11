@@ -28,6 +28,11 @@ def atomic_write_csv(df: pd.DataFrame, path: Path | str, *, encoding: str = "utf
         raise
 
 
+def to_csv_bytes(df: pd.DataFrame) -> bytes:
+    """DataFrame → CSV bytes（utf-8-sig 含 BOM，Excel 直接開啟不亂碼）。"""
+    return df.to_csv(index=False).encode("utf-8-sig")
+
+
 def atomic_write_text(path: Path | str, text: str, *, encoding: str = "utf-8") -> None:
     """將文字原子性寫入檔案。"""
     path = Path(path)
