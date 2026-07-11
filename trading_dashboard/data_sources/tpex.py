@@ -6,12 +6,11 @@
 from __future__ import annotations
 
 import logging
-import random
-import time
 
 import requests
 
 from ..config import DEFAULT_HEADERS
+from .http import get_session
 from .turnover import build_record, finalize_pool, find_column, is_common_stock
 
 logger = logging.getLogger(__name__)
@@ -27,8 +26,7 @@ def fetch_tpex_top20(headers: dict | None = None, tpex_date_str: str = "") -> tu
     errors: list[str] = []
     try:
         url = f"{DAILY_CLOSE_URL}?l=zh-tw&o=json&d={tpex_date_str}"
-        time.sleep(random.uniform(0.5, 1.0))
-        r = requests.get(url, headers=headers, timeout=10)
+        r = get_session().get(url, headers=headers, timeout=10)
 
         if r.status_code != 200 or "application/json" not in r.headers.get("Content-Type", ""):
             raise requests.HTTPError(f"HTTP {r.status_code} 或非 JSON")

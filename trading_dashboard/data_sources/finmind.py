@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -11,7 +12,13 @@ import streamlit as st
 from FinMind.data import DataLoader
 
 from .. import indicators
-from ..config import BENCHMARK_TTL, FINMIND_TTL, parse_stock_id
+from ..config import (
+    BENCHMARK_TTL,
+    FINMIND_RETRY_ATTEMPTS,
+    FINMIND_RETRY_BACKOFF,
+    FINMIND_TTL,
+    parse_stock_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +37,23 @@ def init_finmind() -> DataLoader:
     return api
 
 
+def _fetch_daily_with_retry(stock_id: str, start: str, end: str) -> pd.DataFrame | None:
+    """FinMind 日線抓取＋輕量重試（線性退避）；全部失敗回 None。"""
+    for attempt in range(FINMIND_RETRY_ATTEMPTS):
+        try:
+            return init_finmind().taiwan_stock_daily(stock_id=stock_id, start_date=start, end_date=end)
+        except Exception as e:  # FinMind 可能拋出多種錯誤；記錄後重試/降級
+            logger.warning("FinMind %s 第 %d 次抓取失敗：%s", stock_id, attempt + 1, e)
+            if attempt < FINMIND_RETRY_ATTEMPTS - 1:
+                time.sleep(FINMIND_RETRY_BACKOFF * (attempt + 1))
+    return None
+
+
 @st.cache_data(ttl=FINMIND_TTL)
 def fetch_finmind_data(ticker: str, start: str, end: str) -> pd.DataFrame | None:
     """抓取個股日線並加上技術指標欄位；失敗或無資料回傳 None。"""
     stock_id = parse_stock_id(ticker)
-    try:
-        df = init_finmind().taiwan_stock_daily(stock_id=stock_id, start_date=start, end_date=end)
-    except Exception as e:  # FinMind 可能拋出多種錯誤；記錄後優雅降級
-        logger.warning("FinMind 個股 %s 抓取失敗：%s", stock_id, e)
-        return None
-
+    df = _fetch_daily_with_retry(stock_id, start, end)
     if df is None or df.empty:
         return None
 
@@ -71,12 +85,7 @@ def fetch_finmind_data(ticker: str, start: str, end: str) -> pd.DataFrame | None
 @st.cache_data(ttl=BENCHMARK_TTL)
 def fetch_index_close(stock_id: str, start: str, end: str) -> pd.DataFrame | None:
     """抓取指數（TAIEX 加權 / TPEx 櫃買）收盤序列；失敗回傳 None。"""
-    try:
-        df = init_finmind().taiwan_stock_daily(stock_id=stock_id, start_date=start, end_date=end)
-    except Exception as e:
-        logger.warning("FinMind 指數 %s 抓取失敗：%s", stock_id, e)
-        return None
-
+    df = _fetch_daily_with_retry(stock_id, start, end)
     if df is None or df.empty:
         return None
 

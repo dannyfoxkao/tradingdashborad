@@ -36,6 +36,19 @@ def load_leaderboard(path: Path | str = LEADERBOARD_FILE) -> pd.DataFrame | None
     return df
 
 
+def _ledger_row(sid, name, cumulative_days, last_seen_date, buffer_days, market, turnover_billion) -> dict:
+    """帳本列的唯一建構點（避免欄位形狀散落多處）。"""
+    return {
+        "stock_id": sid,
+        "name": name,
+        "cumulative_days": int(cumulative_days),
+        "last_seen_date": last_seen_date,
+        "buffer_days": int(buffer_days),
+        "market": market,
+        "turnover_billion": turnover_billion,
+    }
+
+
 def update_leaderboard_data(
     today_list: list[dict],
     current_date_str: str,
@@ -49,24 +62,23 @@ def update_leaderboard_data(
     if df_old is None:
         df_old = pd.DataFrame(columns=LEDGER_COLUMNS)
 
-    today_df = pd.DataFrame(today_list)
-    today_ids = today_df["stock_id"].tolist()
+    today_map = {r["stock_id"]: r for r in today_list}
     updated_rows: list[dict] = []
 
-    for _, row in df_old.iterrows():
+    for row in df_old.to_dict("records"):
         sid = row["stock_id"]
-        if sid in today_ids:
-            t_row = today_df[today_df["stock_id"] == sid].iloc[0]
+        t_row = today_map.get(sid)
+        if t_row is not None:
             updated_rows.append(
-                {
-                    "stock_id": sid,
-                    "name": row["name"],
-                    "cumulative_days": int(row["cumulative_days"]) + 1,
-                    "last_seen_date": current_date_str,
-                    "buffer_days": 0,
-                    "market": t_row["market"],
-                    "turnover_billion": t_row["turnover_billion"],
-                }
+                _ledger_row(
+                    sid,
+                    row["name"],
+                    int(row["cumulative_days"]) + 1,
+                    current_date_str,
+                    0,
+                    t_row["market"],
+                    t_row["turnover_billion"],
+                )
             )
         else:
             buf_days = int(row["buffer_days"])
@@ -75,32 +87,21 @@ def update_leaderboard_data(
                 buf_days += 1
             if buf_days <= LEADERBOARD_BUFFER_DAYS:
                 updated_rows.append(
-                    {
-                        "stock_id": sid,
-                        "name": row["name"],
-                        "cumulative_days": int(row["cumulative_days"]),
-                        "last_seen_date": last_date,
-                        "buffer_days": buf_days,
-                        "market": str(row.get("market", "上市")),
-                        "turnover_billion": 0.0,
-                    }
+                    _ledger_row(
+                        sid,
+                        row["name"],
+                        row["cumulative_days"],
+                        last_date,
+                        buf_days,
+                        str(row.get("market", "上市")),
+                        0.0,
+                    )
                 )
 
-    old_ids = df_old["stock_id"].tolist() if not df_old.empty else []
-    for _, row in today_df.iterrows():
-        sid = row["stock_id"]
+    old_ids = set(df_old["stock_id"]) if not df_old.empty else set()
+    for sid, r in today_map.items():
         if sid not in old_ids:
-            updated_rows.append(
-                {
-                    "stock_id": sid,
-                    "name": row["name"],
-                    "cumulative_days": 1,
-                    "last_seen_date": current_date_str,
-                    "buffer_days": 0,
-                    "market": row["market"],
-                    "turnover_billion": row["turnover_billion"],
-                }
-            )
+            updated_rows.append(_ledger_row(sid, r["name"], 1, current_date_str, 0, r["market"], r["turnover_billion"]))
 
     df_new = pd.DataFrame(updated_rows, columns=LEDGER_COLUMNS)
     atomic_write_csv(df_new, path)

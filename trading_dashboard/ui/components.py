@@ -6,6 +6,8 @@ import html
 
 import pandas as pd
 
+from ..config import RANGEBREAKS_CACHE_MAX
+
 # 收盤漲跌色（台股慣例：紅漲綠跌）
 PRICE_UP = "#ff5252"
 PRICE_DOWN = "#4caf50"
@@ -46,6 +48,9 @@ def get_rangebreaks(index: pd.DatetimeIndex) -> list[str]:
     key = (index.min(), index.max(), len(index))
     cached = _RANGEBREAKS_CACHE.get(key)
     if cached is None:
+        if len(_RANGEBREAKS_CACHE) >= RANGEBREAKS_CACHE_MAX:
+            # 滿了整批清除：重算成本毫秒級，不值得引入 LRU 複雜度
+            _RANGEBREAKS_CACHE.clear()
         missing = pd.date_range(start=index.min(), end=index.max()).difference(index)
         cached = missing.strftime("%Y-%m-%d").tolist()
         _RANGEBREAKS_CACHE[key] = cached
