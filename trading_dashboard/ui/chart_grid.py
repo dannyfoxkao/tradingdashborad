@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 _MIN_ROWS = 5
 _CANDLE_UP, _CANDLE_DOWN = "#ef5350", "#26a69a"
 _MA_COLORS = {"MA5": "#ffa726", "MA10": "#ec407a", "MA20": "#29b6f6", "MA60": "#ab47bc"}
+# 副圖均線的單一事實來源：圖例與繪線皆由此導出，保證兩者一致
+_SUB_MA_COLORS: dict[int, str] = {5: "#ffa726", 20: "#29b6f6"}
 _TURN_BAR, _DUAL_LINE, _DISP_FILL = "#455a64", "#cfd8dc", "#7e57c2"
 _TURN_TYPE, _DUAL_TYPE = "成交金額 (估算)", "量 + 金額雙對比"
 
@@ -37,11 +39,17 @@ def render(group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, 
         for idx, ticker in enumerate(row_tickers):
             clean_id = parse_stock_id(ticker)
             df = data.get(clean_id)
-            if df is None or len(df) < _MIN_ROWS:
-                continue
             with cols[idx]:
-                _render_card(clean_id, selected_stocks[ticker], df, sub_chart_type,
-                             benchmark_df, disposition_map, key=f"{ticker}_{i + idx}")
+                if df is None:
+                    st.markdown(_empty_card_html(clean_id, selected_stocks[ticker], "抓取失敗或代號無資料"),
+                                unsafe_allow_html=True)
+                elif len(df) < _MIN_ROWS:
+                    st.markdown(_empty_card_html(clean_id, selected_stocks[ticker],
+                                                 f"僅 {len(df)} 筆，未達最低 {_MIN_ROWS} 筆"),
+                                unsafe_allow_html=True)
+                else:
+                    _render_card(clean_id, selected_stocks[ticker], df, sub_chart_type,
+                                 benchmark_df, disposition_map, key=f"{ticker}_{i + idx}")
 
 
 def _render_card(clean_id, name, df, sub_chart_type, benchmark_df, disposition_map, key="") -> None:
@@ -52,6 +60,18 @@ def _render_card(clean_id, name, df, sub_chart_type, benchmark_df, disposition_m
         unsafe_allow_html=True,
     )
     st.plotly_chart(_build_figure(df, sub_chart_type, disp_windows), width="stretch", key=f"chart_{key}")
+
+
+def _empty_card_html(clean_id: str, name: str, reason: str) -> str:
+    """個股無資料時的占位卡（取代原本的默默留白）。"""
+    safe_name = html.escape(str(name))
+    safe_reason = html.escape(reason)
+    return f"""
+    <div style="padding: 8px 10px; background-color: #1e1e1e; border-radius: 6px; border-left: 4px solid #616161; margin-bottom: 5px;">
+        <b style="color: #9e9e9e; font-size: 14px;">{clean_id} {safe_name}</b>
+        <div style="font-size: 12px; color: #757575;">⚠️ 無資料：{safe_reason}</div>
+    </div>
+    """
 
 
 def _disposition_mask(index: pd.DatetimeIndex, windows: list[dict]) -> pd.Series:
@@ -95,6 +115,10 @@ def _panel_html(clean_id, name, df, disp_windows, disp_mask, sub_chart_type, ben
         logger.warning("圖卡指標計算失敗 %s：%s", clean_id, e)
 
     sub_label = "額MA" if sub_chart_type == _TURN_TYPE else "量MA"
+    sub_legend = "".join(
+        f'<span style="color:{color}; margin-right:5px;">●{w}</span>'
+        for w, color in _SUB_MA_COLORS.items()
+    )
     safe_name = html.escape(str(name))
     return f"""
     <div style="padding: 8px 10px; background-color: #1e1e1e; border-radius: 6px; border-left: 4px solid #4fc3f7; margin-bottom: 5px;">
@@ -107,7 +131,7 @@ def _panel_html(clean_id, name, df, disp_windows, disp_mask, sub_chart_type, ben
         </div>
         <div style="font-size: 11px; color: #888888; font-family: monospace;">
             價MA: <span style="color:#ffa726; margin-right:5px;">●5</span><span style="color:#ec407a; margin-right:5px;">●10</span><span style="color:#29b6f6; margin-right:5px;">●20</span><span style="color:#ab47bc; margin-right:12px;">●60</span>
-            {sub_label}: <span style="color:#ffa726; margin-right:5px;">●5</span><span style="color:#29b6f6; margin-right:5px;">●20</span><span style="color:#ab47bc; margin-right:5px;">●60</span>
+            {sub_label}: {sub_legend}
         </div>
     </div>
     """
@@ -160,17 +184,17 @@ def _add_subchart(fig, df, sub_chart_type, display_vol, vol_colors) -> None:
     div = HUNDRED_MILLION
     if sub_chart_type in ("成交量", _DUAL_TYPE):
         fig.add_trace(go.Bar(x=df.index, y=display_vol, marker_color=vol_colors, opacity=0.4), row=2, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df["Vol_MA5"] / 1000, mode="lines",
-                                 line=dict(color="#ffa726", width=1.0)), row=2, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df["Vol_MA20"] / 1000, mode="lines",
-                                 line=dict(color="#29b6f6", width=1.0)), row=2, col=1)
+        for w, color in _SUB_MA_COLORS.items():
+            fig.add_trace(go.Scatter(x=df.index, y=df[f"Vol_MA{w}"] / 1000, mode="lines",
+                                     line=dict(color=color, width=1.0)), row=2, col=1)
     if sub_chart_type == _TURN_TYPE:
         fig.add_trace(go.Bar(x=df.index, y=df["Turnover"] / div, marker_color=_TURN_BAR, opacity=0.5), row=2, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df["Turn_MA5"] / div, mode="lines",
-                                 line=dict(color="#ffa726", width=1.0)), row=2, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df["Turn_MA20"] / div, mode="lines",
-                                 line=dict(color="#29b6f6", width=1.0)), row=2, col=1)
+        for w, color in _SUB_MA_COLORS.items():
+            fig.add_trace(go.Scatter(x=df.index, y=df[f"Turn_MA{w}"] / div, mode="lines",
+                                     line=dict(color=color, width=1.0)), row=2, col=1)
     if sub_chart_type == _DUAL_TYPE:
         fig.add_trace(go.Scatter(x=df.index, y=df["Turnover"] / div, mode="lines",
-                                 line=dict(color=_DUAL_LINE, width=1.2), yaxis="y3"), row=2, col=1)
+                                 line=dict(color=_DUAL_LINE, width=1.2)), row=2, col=1)
+        # add_trace(row=2) 會把 yaxis 覆寫為 y2，須事後改指到疊加軸 y3
+        fig.data[-1].update(yaxis="y3")
         fig.update_layout(yaxis3=dict(overlaying="y2", side="right", showgrid=False))

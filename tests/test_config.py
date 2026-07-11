@@ -2,7 +2,9 @@ import json
 
 import pytest
 
-from trading_dashboard.config import ConfigError, load_stock_config, parse_stock_id
+from trading_dashboard.config import (
+    ConfigError, find_malformed_ids, load_stock_config, parse_stock_id,
+)
 
 
 @pytest.mark.parametrize("ticker, expected", [
@@ -50,3 +52,25 @@ def test_load_stock_config_invalid_structure(tmp_path, payload):
     p = _write(tmp_path, payload)
     with pytest.raises(ConfigError):
         load_stock_config(p)
+
+
+def test_find_malformed_ids_flags_only_invalid():
+    pool = {
+        "大盤": {"TAIEX": "加權指數", "TPEx": "櫃檯加權", "2330.TW": "台積電"},
+        "ETF": {"00981A.TW": "主動增長", "0050.TW": "元大台灣50"},
+        "打錯": {"233O.TW": "字母O打錯", "ABC": "亂填"},
+    }
+
+    assert find_malformed_ids(pool) == ["233O.TW", "ABC"]
+
+
+def test_find_malformed_ids_empty_when_all_valid():
+    pool = {"g": {"2330.TW": "台積電", "5347.TWO": "世界", "TAIEX": "指數"}}
+
+    assert find_malformed_ids(pool) == []
+
+
+def test_find_malformed_ids_dedupes_repeated_ticker():
+    pool = {"a": {"XXX.TW": "壞"}, "b": {"XXX.TW": "壞"}}
+
+    assert find_malformed_ids(pool) == ["XXX.TW"]

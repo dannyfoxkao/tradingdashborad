@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import streamlit as st
 
 from trading_dashboard.config import (
-    ConfigError, TZ_TAIPEI, configure_logging, load_stock_config,
+    ConfigError, TZ_TAIPEI, configure_logging, find_malformed_ids, load_stock_config,
 )
 from trading_dashboard.data_sources.disposition import fetch_disposition_map
 from trading_dashboard.data_sources.finmind import fetch_benchmark_data
@@ -41,6 +41,9 @@ def main() -> None:
     configure_logging()
     _setup_page()
     stocks_pool = _load_config()
+    malformed = find_malformed_ids(stocks_pool)
+    if malformed:
+        st.sidebar.warning("以下代號格式異常，將無法取得資料：" + "、".join(malformed))
 
     # 1) 熱錢霸榜排行
     leaderboard_panel.render()

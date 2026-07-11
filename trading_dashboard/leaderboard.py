@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from .config import LEADERBOARD_BUFFER_DAYS, LEADERBOARD_FILE
+from .persistence import atomic_write_csv
 
 LEDGER_COLUMNS = [
     "stock_id", "name", "cumulative_days", "last_seen_date",
@@ -87,5 +88,5 @@ def update_leaderboard_data(
             })
 
     df_new = pd.DataFrame(updated_rows, columns=LEDGER_COLUMNS)
-    df_new.to_csv(path, index=False, encoding="utf-8")
+    atomic_write_csv(df_new, path)
     return df_new
