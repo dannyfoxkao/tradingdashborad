@@ -47,7 +47,7 @@ def render_leaderboard():
                 df_disp.columns = ["所屬市場", "股票代號", "股票名稱", "🔥 累計進榜(天)", "今日成交額(億)", "最後進榜日"]
 
                 # 使用自訂 Style 顏色高亮上櫃股 (此處以單純的 dataframe 呈現，Streamlit 會自動排版)
-                st.dataframe(df_disp, use_container_width=True)
+                st.dataframe(df_disp, width='stretch')
             else:
                 st.info("本地帳本目前為空，請於下個交易日收盤後再次刷新嘗試對齊。")
         else:

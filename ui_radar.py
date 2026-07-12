@@ -2,7 +2,10 @@ import pandas as pd
 import streamlit as st
 
 from data import fetch_finmind_data
-from analysis import classify_trend, compute_alpha, evaluate_signals, is_in_disposition
+from analysis import (
+    classify_trend, compute_alpha, evaluate_signals, is_in_disposition,
+    classify_long_term, compute_momentum, compute_support_resistance,
+)
 
 
 # =====================================================================
@@ -39,6 +42,8 @@ def render_stock_radar(group_choice, selected_stocks, stocks_pool,
                     sg = evaluate_signals(d, in_disp)
                     n_buy = len(sg["buys"]) if sg else 0
                     n_sell = len(sg["sells"]) if sg else 0
+                    # 長線濾網／動能／R:R 欄位暫不顯示（classify_long_term / compute_momentum /
+                    # compute_support_resistance 保留於 analysis.py，日後要顯示再接回）。
                     rows.append({
                         "族群": g,
                         "代號": cid,
@@ -65,7 +70,7 @@ def render_stock_radar(group_choice, selected_stocks, stocks_pool,
                 n_bottom = sum(1 for r in rows if "底部翻揚" in r["趨勢"])
                 n_mid = len(rows) - n_strong - n_bottom
                 st.success(f"掃描完成：共 {len(res)} 檔（🟢 強多 {n_strong}／🌱 底部翻揚 {n_bottom}／🟡 震盪偏多 {n_mid}）｜由強至弱排序")
-                st.dataframe(res, use_container_width=True, hide_index=True)
+                st.dataframe(res, width='stretch', hide_index=True)
             else:
                 st.info("本次掃描沒有符合『強多／震盪偏多』的標的。")
         else:

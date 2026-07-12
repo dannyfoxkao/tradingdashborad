@@ -1,0 +1,17 @@
+
+# 回測快取與輸出（本地累積，不進版控）
+__pycache__/
+*.pyc
+backtest_cache/
+backtest_trades.csv
+backtest_ignitions.csv
+backtest_summary.json
+backtest_trades_*.csv
+backtest_ignitions_*.csv
+backtest_summary_*.json
+disposition_calendar.csv
+turnover_leaderboard.csv
+
+# 原始處置/處分下載檔（整合進 disposition_calendar.csv 後即為衍生資料）
+disposal_information_*.csv
+punish.csv

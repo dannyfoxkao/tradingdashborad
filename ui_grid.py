@@ -5,7 +5,10 @@ from plotly.subplots import make_subplots
 import streamlit as st
 
 from data import fetch_finmind_data
-from analysis import classify_trend, compute_alpha, evaluate_signals
+from analysis import (
+    classify_trend, compute_alpha, evaluate_signals, red_k_tailwind_signals,
+    classify_long_term, compute_momentum, compute_atr_stop, compute_support_resistance,
+)
 
 
 # =====================================================================
@@ -44,7 +47,7 @@ def render_group_momentum(tickers, start_str, end_str):
 # 🖥️ UI：自訂板塊 K 線網格牆 (Pro 級量化指標升級版)
 # =====================================================================
 def render_grid_wall(tickers, selected_stocks, grid_cols, sub_chart_type,
-                     start_str, end_str, disposition_map, benchmark_df):
+                     start_str, end_str, disposition_map, benchmark_df, show_tailwind=True):
     for i in range(0, len(tickers), grid_cols):
         row_tickers = tickers[i:i+grid_cols]
         cols = st.columns(grid_cols)
@@ -156,11 +159,18 @@ def render_grid_wall(tickers, selected_stocks, grid_cols, sub_chart_type,
                         <div>{disp_html}{trend_html}{vol_html}{alpha_html}</div>
                     </div>
                     <div style="font-size: 11px; color: #888888; font-family: monospace;">
-                        價MA: <span style="color:#ffa726; margin-right:5px;">●5</span><span style="color:#ec407a; margin-right:5px;">●10</span><span style="color:#29b6f6; margin-right:5px;">●20</span><span style="color:#ab47bc; margin-right:12px;">●60</span>
+                        價MA: <span style="color:#ffa726; margin-right:5px;">●5</span><span style="color:#ec407a; margin-right:5px;">●10</span><span style="color:#29b6f6; margin-right:5px;">●20</span><span style="color:#ab47bc; margin-right:5px;">●60</span><span style="color:#90a4ae; margin-right:12px;">┈200</span>
                         {sub_label}: <span style="color:#ffa726; margin-right:5px;">●5</span><span style="color:#29b6f6; margin-right:5px;">●20</span><span style="color:#ab47bc; margin-right:5px;">●60</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+
+                # ── 策略濾網 badge 暫不顯示 ──
+                # classify_long_term / compute_momentum / compute_support_resistance /
+                # compute_atr_stop 均保留於 analysis.py，日後要重新顯示 badge 再接回即可。
+                # 這裡仍計算 sr / atr，供下方 K 線圖標示 壓/撐/停損 水平線。
+                sr = compute_support_resistance(df)
+                atr = compute_atr_stop(df)
 
                 # ── 交易一致性訊號燈：進場(B/H) / 出場(S)，純日線自動子集 ──
                 try:
@@ -190,6 +200,28 @@ def render_grid_wall(tickers, selected_stocks, grid_cols, sub_chart_type,
                     </div>
                     """, unsafe_allow_html=True)
 
+                # ── 策略「紅K順風車」買賣點（狀態機標記；side-bar 可關）──
+                tw = red_k_tailwind_signals(df) if show_tailwind else None
+                if tw and tw["latest"]:
+                    L = tw["latest"]
+                    if L["accel"]:
+                        vstate = '<span style="color:#fbc02d;">🔥波動加速</span>'
+                    else:
+                        vstate = '<span style="color:#9e9e9e;">波動中性</span>'
+                    pos_txt = ('<span style="color:#ff8a80;">持倉中</span>' if L["in_pos"]
+                               else '<span style="color:#888;">空手</span>')
+                    st.markdown(
+                        f'<div style="padding:4px 10px;background:#161616;border-radius:6px;'
+                        f'margin-bottom:5px;font-size:10px;color:#aaa;">'
+                        f'🚗 紅K順風車｜{L["quad"]}｜{vstate}｜{pos_txt}　'
+                        f'ATR5% {L["atr5_pct"]}／ATR14% {L["atr14_pct"]}　'
+                        f'SNR {L["snr"]}｜翻轉 {L["flip_pct"]}%　'
+                        f'<span style="color:#ff8a80;">▲買{len(tw["buys"])}</span> '
+                        f'<span style="color:#80cbc4;">▼賣{len(tw["sells"])}</span> '
+                        f'<span style="color:#ffb74d;">⚠{len(tw["warns"])}</span></div>',
+                        unsafe_allow_html=True,
+                    )
+
                 # === Plotly 圖表渲染 ===
                 fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.70, 0.30])
                 div_factor = 100000000
@@ -202,10 +234,72 @@ def render_grid_wall(tickers, selected_stocks, grid_cols, sub_chart_type,
                 fig.add_trace(go.Scatter(x=df.index, y=df['MA10'], mode='lines', line=dict(color='#ec407a', width=1.2)), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], mode='lines', line=dict(color='#29b6f6', width=1.2)), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=df['MA60'], mode='lines', line=dict(color='#ab47bc', width=1.2)), row=1, col=1)
+                # 長線趨勢濾網 MA200（灰色虛線，僅在成形時繪製）
+                if 'MA200' in df.columns and df['MA200'].notna().any():
+                    fig.add_trace(go.Scatter(x=df.index, y=df['MA200'], mode='lines',
+                                             line=dict(color='#90a4ae', width=1.0, dash='dot')), row=1, col=1)
+
+                # 策略「紅K順風車」：買賣點三角、2×ATR trail 線、波動加速背景
+                if tw:
+                    # ② 波動加速背景（淡黃區段）
+                    _am = tw["accel_mask"]
+                    if _am is not None and _am.any():
+                        _grp = (_am != _am.shift()).cumsum()
+                        for _, _seg in _am[_am].groupby(_grp[_am]):
+                            fig.add_vrect(x0=_seg.index.min(), x1=_seg.index.max(),
+                                          fillcolor="#fbc02d", opacity=0.06, line_width=0,
+                                          layer="below", row=1, col=1)
+                    # 2×ATR14 移動停利 trail（持倉段才有值，空手為 NaN 自動斷線）
+                    if tw["trail"] is not None and tw["trail"].notna().any():
+                        fig.add_trace(go.Scatter(x=df.index, y=tw["trail"], mode='lines',
+                                                 line=dict(color='#ffa726', width=1.0, dash='dot')), row=1, col=1)
+                    # ▲ 買點（紅，置於低點下方）
+                    if tw["buys"]:
+                        fig.add_trace(go.Scatter(
+                            x=[b["date"] for b in tw["buys"]],
+                            y=[b["price"] * 0.985 for b in tw["buys"]],
+                            mode='markers',
+                            marker=dict(symbol='triangle-up', size=12, color='#ff5252',
+                                        line=dict(width=1, color='#fff')),
+                            text=[b["reason"] for b in tw["buys"]],
+                            hovertemplate='買：%{text}<br>%{x|%Y-%m-%d}<extra></extra>'), row=1, col=1)
+                    # ▼ 賣點（綠，置於高點上方）
+                    if tw["sells"]:
+                        fig.add_trace(go.Scatter(
+                            x=[s["date"] for s in tw["sells"]],
+                            y=[s["price"] * 1.015 for s in tw["sells"]],
+                            mode='markers',
+                            marker=dict(symbol='triangle-down', size=12, color='#26a69a',
+                                        line=dict(width=1, color='#fff')),
+                            text=[s["reason"] for s in tw["sells"]],
+                            hovertemplate='賣：%{text}<br>%{x|%Y-%m-%d}<extra></extra>'), row=1, col=1)
+                    # ⚠ 警示（橘，小星，置於高點上方）
+                    if tw["warns"]:
+                        fig.add_trace(go.Scatter(
+                            x=[w["date"] for w in tw["warns"]],
+                            y=[w["price"] * 1.03 for w in tw["warns"]],
+                            mode='markers',
+                            marker=dict(symbol='star', size=9, color='#ffb74d',
+                                        line=dict(width=0.5, color='#fff')),
+                            text=[w["reason"] for w in tw["warns"]],
+                            hovertemplate='警示：%{text}<br>%{x|%Y-%m-%d}<extra></extra>'), row=1, col=1)
+
+                # 支撐壓力(前高前低) + ATR 停損：主圖水平參考線
+                if sr:
+                    fig.add_hline(y=sr["resistance"], line=dict(color='#ef5350', width=0.8, dash='dash'),
+                                  annotation_text="壓", annotation_position="top left",
+                                  annotation_font_size=9, annotation_font_color='#ef5350', row=1, col=1)
+                    fig.add_hline(y=sr["support"], line=dict(color='#26a69a', width=0.8, dash='dash'),
+                                  annotation_text="撐", annotation_position="bottom left",
+                                  annotation_font_size=9, annotation_font_color='#26a69a', row=1, col=1)
+                if atr:
+                    fig.add_hline(y=atr["stop"], line=dict(color='#ffa726', width=0.8, dash='dot'),
+                                  annotation_text="停損2×ATR", annotation_position="bottom right",
+                                  annotation_font_size=9, annotation_font_color='#ffa726', row=1, col=1)
 
                 # 副圖
                 if sub_chart_type == "成交量" or sub_chart_type == "量 + 金額雙對比":
-                    fig.add_trace(go.Bar(x=df.index, y=display_vol, marker_color=vol_colors, opacity=0.4), row=2, col=1)
+                    fig.add_trace(go.Bar(x=df.index, y=display_vol, marker_color=vol_colors, opacity=1.0), row=2, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=df['Vol_MA5']/1000 if 'Vol_MA5' in df else df['Vol_MA20']/1000, mode='lines', line=dict(color='#ffa726', width=1.0)), row=2, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=df['Vol_MA20']/1000, mode='lines', line=dict(color='#29b6f6', width=1.0)), row=2, col=1)
 
