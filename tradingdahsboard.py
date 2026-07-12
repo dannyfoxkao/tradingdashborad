@@ -21,6 +21,7 @@ import streamlit as st
 
 from data import fetch_benchmark_data, fetch_index_close, fetch_disposition_map
 from ui_leaderboard import render_leaderboard
+from ui_today import render_today_tailwind
 from ui_weather import render_market_weather
 from ui_radar import render_stock_radar
 from ui_grid import render_group_momentum, render_grid_wall
@@ -30,6 +31,13 @@ STOCKS_POOL = load_stock_pool()
 
 # 🔥 熱錢霸榜排行看板
 render_leaderboard()
+
+st.markdown("---")
+
+# 🚗 今日『紅K順風車』點火掃描（全池；按鈕觸發）
+_today_end = datetime.today().strftime("%Y-%m-%d")
+_today_start = (datetime.today() - timedelta(days=120)).strftime("%Y-%m-%d")
+render_today_tailwind(STOCKS_POOL, _today_start, _today_end)
 
 st.markdown("---")
 
@@ -48,6 +56,7 @@ sub_chart_type = st.sidebar.selectbox(
     "副圖顯示內容",
     ["成交量", "成交金額 (估算)", "量 + 金額雙對比"]
 )
+show_tailwind = st.sidebar.checkbox("🚗 標記『紅K順風車』買賣點", value=True)
 
 end_date = datetime.today()
 start_date = end_date - timedelta(days=time_window)
@@ -81,4 +90,4 @@ render_group_momentum(tickers, start_str, end_str)
 
 # 🖥️ K 線網格牆
 render_grid_wall(tickers, selected_stocks, grid_cols, sub_chart_type,
-                 start_str, end_str, disposition_map, benchmark_df)
+                 start_str, end_str, disposition_map, benchmark_df, show_tailwind)
