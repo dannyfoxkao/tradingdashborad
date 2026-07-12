@@ -113,7 +113,10 @@ def ignition_events(df, sid, name):
     h = df["High"].to_numpy(float)
     c = df["Close"].to_numpy(float)
     v = df["Volume"].to_numpy(float)
-    volma = (df["Vol_MA20"] if "Vol_MA20" in df.columns else df["Volume"].rolling(20).mean()).to_numpy(float)
+    # 量基準優先用「處置剔除後」均量（與 app 標記/報告1 一致；處置期分盤撮合量能失真）
+    volma_col = "Vol_MA20_clean" if "Vol_MA20_clean" in df.columns else (
+        "Vol_MA20" if "Vol_MA20" in df.columns else None)
+    volma = (df[volma_col] if volma_col else df["Volume"].rolling(20).mean()).to_numpy(float)
     atr = (df["ATR14_clean"] if "ATR14_clean" in df.columns else df["ATR14"]).to_numpy(float)
     disp = df["DispDay"].to_numpy(bool) if "DispDay" in df.columns else np.zeros(len(df), bool)
     with np.errstate(divide="ignore", invalid="ignore"):

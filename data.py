@@ -9,10 +9,34 @@ import streamlit as st
 from FinMind.data import DataLoader
 
 
+FINMIND_TOKEN_FILE = "finmind_token.json"   # 本地憑證檔（已列入 .gitignore，勿上版控）
+
+
+def _load_finmind_token():
+    """讀取 FinMind API token：優先本地 finmind_token.json，其次環境變數 FINMIND_TOKEN。"""
+    try:
+        if os.path.exists(FINMIND_TOKEN_FILE):
+            import json
+            with open(FINMIND_TOKEN_FILE, "r", encoding="utf-8") as f:
+                tok = (json.load(f).get("api_token") or "").strip()
+            if tok:
+                return tok
+    except Exception:
+        pass
+    return (os.environ.get("FINMIND_TOKEN") or "").strip()
+
+
 # 初始化 FinMind
 @st.cache_resource
 def init_finmind():
-    return DataLoader()
+    dl = DataLoader()
+    tok = _load_finmind_token()
+    if tok:
+        try:
+            dl.login_by_token(api_token=tok)     # 有 token：額度較高、限流較鬆
+        except Exception:
+            pass                                 # 登入失敗就退回匿名（免費層）繼續可用
+    return dl
 
 
 api = init_finmind()

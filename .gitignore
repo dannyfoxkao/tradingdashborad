@@ -15,3 +15,6 @@ turnover_leaderboard.csv
 # 原始處置/處分下載檔（整合進 disposition_calendar.csv 後即為衍生資料）
 disposal_information_*.csv
 punish.csv
+
+# FinMind API 憑證（本地填入，勿上版控）
+finmind_token.json

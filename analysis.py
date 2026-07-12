@@ -339,7 +339,7 @@ def evaluate_signals(df, in_disp=False):
 
 def red_k_tailwind_signals(df, chg_thr=6.5, vol_mult=1.5, atr_trail_mult=2.0,
                            reentry_on_new_high=False, limit_up_thr=9.5,
-                           require_close_high=True):
+                           require_close_high=True, entry_filter=None):
     """
     策略「紅K順風車」買賣點標記（狀態機：進場→出場成對；依 volatility_framework.md）。
     回傳 dict：{buys, sells, warns, accel_mask, trail, latest}；資料不足回 None。
@@ -429,6 +429,8 @@ def red_k_tailwind_signals(df, chg_thr=6.5, vol_mult=1.5, atr_trail_mult=2.0,
                 reason = "第一根紅K"
             elif reentry_on_new_high and c20high[i]:
                 reason = "20日新高再進場"
+            if reason and entry_filter is not None and not entry_filter(i):
+                reason = None                 # 額外進場濾網（研究/回測用；預設 None 不影響）
             if reason and _fin(atr14[i]):
                 in_pos = True
                 peak = c[i]
