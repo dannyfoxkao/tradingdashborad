@@ -1,7 +1,10 @@
+# 執行期產物（runtime artifact）：熱錢排行帳本與歷史快照，每次刷新都會變動
+turnover_leaderboard.csv
+leaderboard_history.csv
+signals_history.csv
+stock_config.json.bak
 
 # 回測快取與輸出（本地累積，不進版控）
-__pycache__/
-*.pyc
 backtest_cache/
 backtest_trades.csv
 backtest_ignitions.csv
@@ -10,7 +13,6 @@ backtest_trades_*.csv
 backtest_ignitions_*.csv
 backtest_summary_*.json
 disposition_calendar.csv
-turnover_leaderboard.csv
 
 # 原始處置/處分下載檔（整合進 disposition_calendar.csv 後即為衍生資料）
 disposal_information_*.csv
@@ -18,3 +20,36 @@ punish.csv
 
 # FinMind API 憑證（本地填入，勿上版控）
 finmind_token.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# 虛擬環境
+.venv/
+venv/
+env/
+
+# 測試 / 覆蓋率
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Lint / 型別檢查快取
+.ruff_cache/
+.mypy_cache/
+
+# Claude Code 本機設定
+.claude/
+
+# 環境變數（含 FINMIND_TOKEN 等機密）
+.env
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
