@@ -253,6 +253,12 @@ def render_grid_wall(tickers, selected_stocks, grid_cols, sub_chart_type,
                     if tw["trail"] is not None and tw["trail"].notna().any():
                         fig.add_trace(go.Scatter(x=df.index, y=tw["trail"], mode='lines',
                                                  line=dict(color='#ffa726', width=1.0, dash='dot')), row=1, col=1)
+                        # 持倉中：在線尾標出目前出場價（收盤跌破此價→隔日出場）
+                        _tv = tw["trail"].iloc[-1]
+                        if pd.notna(_tv):
+                            fig.add_annotation(x=df.index[-1], y=_tv, text=f"出場 {_tv:.1f}",
+                                               showarrow=False, xanchor='left', xshift=4,
+                                               font=dict(size=10, color='#ffa726'), row=1, col=1)
                     # ▲ 買點（紅，置於低點下方）
                     if tw["buys"]:
                         fig.add_trace(go.Scatter(
@@ -287,15 +293,17 @@ def render_grid_wall(tickers, selected_stocks, grid_cols, sub_chart_type,
                 # 支撐壓力(前高前低) + ATR 停損：主圖水平參考線
                 if sr:
                     fig.add_hline(y=sr["resistance"], line=dict(color='#ef5350', width=0.8, dash='dash'),
-                                  annotation_text="壓", annotation_position="top left",
+                                  annotation_text=f"壓 {sr['resistance']:.1f}", annotation_position="top left",
                                   annotation_font_size=9, annotation_font_color='#ef5350', row=1, col=1)
                     fig.add_hline(y=sr["support"], line=dict(color='#26a69a', width=0.8, dash='dash'),
-                                  annotation_text="撐", annotation_position="bottom left",
+                                  annotation_text=f"撐 {sr['support']:.1f}", annotation_position="bottom left",
                                   annotation_font_size=9, annotation_font_color='#26a69a', row=1, col=1)
                 if atr:
-                    fig.add_hline(y=atr["stop"], line=dict(color='#ffa726', width=0.8, dash='dot'),
-                                  annotation_text="停損2×ATR", annotation_position="bottom right",
-                                  annotation_font_size=9, annotation_font_color='#ffa726', row=1, col=1)
+                    # 通用風控參考（錨在最新收盤，非策略出場線）→ 灰色以區隔順風車 trail
+                    fig.add_hline(y=atr["stop"], line=dict(color='#9e9e9e', width=0.8, dash='dot'),
+                                  annotation_text=f"停損2×ATR {atr['stop']:.1f}",
+                                  annotation_position="bottom right",
+                                  annotation_font_size=9, annotation_font_color='#9e9e9e', row=1, col=1)
 
                 # 副圖
                 if sub_chart_type == "成交量" or sub_chart_type == "量 + 金額雙對比":
