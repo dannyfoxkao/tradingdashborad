@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import time
+from datetime import timedelta
 from pathlib import Path
 
 import numpy as np
@@ -20,8 +21,11 @@ from ..config import (
     FINMIND_RETRY_BACKOFF,
     FINMIND_TOKEN_FILE,
     FINMIND_TTL,
+    FINMIND_WARMUP_DAYS,
     parse_stock_id,
 )
+from ..vol_framework import apply_vol_framework, back_adjust
+from .disposition import fetch_disposition_map
 
 logger = logging.getLogger(__name__)
 
@@ -65,15 +69,9 @@ def _fetch_daily_with_retry(stock_id: str, start: str, end: str) -> pd.DataFrame
     return None
 
 
-@st.cache_data(ttl=FINMIND_TTL)
-def fetch_finmind_data(ticker: str, start: str, end: str) -> pd.DataFrame | None:
-    """抓取個股日線並加上技術指標欄位；失敗或無資料回傳 None。"""
-    stock_id = parse_stock_id(ticker)
-    df = _fetch_daily_with_retry(stock_id, start, end)
-    if df is None or df.empty:
-        return None
-
-    df = df.rename(
+def _normalise_columns(raw: pd.DataFrame) -> pd.DataFrame:
+    """FinMind 原始欄位 → OHLCV/Turnover，date 設為排序後索引。"""
+    df = raw.rename(
         columns={
             "open": "Open",
             "max": "High",
@@ -84,7 +82,7 @@ def fetch_finmind_data(ticker: str, start: str, end: str) -> pd.DataFrame | None
         }
     )
 
-    # 量 / 額互補；皆缺時以 NaN 表示（不再偽造固定 1,000,000 量能）
+    # 量 / 額互補；皆缺時以 NaN 表示（不偽造量能——點火等量能條件將保守地不觸發）
     if "Turnover" not in df.columns:
         df["Turnover"] = df["Close"] * df["Volume"] if "Volume" in df.columns else np.nan
     if "Volume" not in df.columns:
@@ -94,8 +92,34 @@ def fetch_finmind_data(ticker: str, start: str, end: str) -> pd.DataFrame | None
             df["Volume"] = np.nan
 
     df["date"] = pd.to_datetime(df["date"])
-    df = df.set_index("date")
-    return indicators.enrich(df)
+    return df.set_index("date").sort_index()
+
+
+def _compute_indicators(df: pd.DataFrame, stock_id: str) -> pd.DataFrame:
+    """還原股價 → 基礎/重型指標 → 波動率框架策略欄位（處置剔除法）。"""
+    df = back_adjust(df)
+    df = indicators.enrich(df)
+    df = indicators.enrich_heavy(df)
+    windows = fetch_disposition_map().get(stock_id, [])
+    return apply_vol_framework(df, windows)
+
+
+@st.cache_data(ttl=FINMIND_TTL)
+def fetch_finmind_data(ticker: str, start: str, end: str) -> pd.DataFrame | None:
+    """抓取個股日線並計算全套研判/策略指標欄位；失敗或無資料回傳 None。
+
+    為讓 MA200 / 12 個月動能等長週期指標在顯示區左緣就成形，實際多抓
+    FINMIND_WARMUP_DAYS 天暖身資料，指標算完後切回 [start, end]。
+    """
+    stock_id = parse_stock_id(ticker)
+    fetch_start = (pd.to_datetime(start) - timedelta(days=FINMIND_WARMUP_DAYS)).strftime("%Y-%m-%d")
+    raw = _fetch_daily_with_retry(stock_id, fetch_start, end)
+    if raw is None or raw.empty:
+        return None
+
+    df = _compute_indicators(_normalise_columns(raw), stock_id)
+    df = df[df.index >= pd.to_datetime(start)]
+    return None if df.empty else df
 
 
 @st.cache_data(ttl=BENCHMARK_TTL)
