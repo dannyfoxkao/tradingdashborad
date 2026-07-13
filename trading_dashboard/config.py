@@ -23,6 +23,8 @@ CONFIG_PATH: Path = BASE_DIR / "stock_config.json"
 LEADERBOARD_FILE: Path = BASE_DIR / "turnover_leaderboard.csv"
 LEADERBOARD_HISTORY_FILE: Path = BASE_DIR / "leaderboard_history.csv"
 SIGNALS_HISTORY_FILE: Path = BASE_DIR / "signals_history.csv"
+DISPOSITION_CALENDAR_FILE: Path = BASE_DIR / "disposition_calendar.csv"  # 處置日曆本地累積（已 gitignore）
+FINMIND_TOKEN_FILE: Path = BASE_DIR / "finmind_token.json"  # {"api_token": "..."}，已 gitignore
 
 # ── 時區：台股以 Asia/Taipei（UTC+8）為準，避免主機時區造成抓錯交易日 ──
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")

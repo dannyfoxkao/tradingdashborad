@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -16,6 +18,7 @@ from ..config import (
     BENCHMARK_TTL,
     FINMIND_RETRY_ATTEMPTS,
     FINMIND_RETRY_BACKOFF,
+    FINMIND_TOKEN_FILE,
     FINMIND_TTL,
     parse_stock_id,
 )
@@ -23,11 +26,24 @@ from ..config import (
 logger = logging.getLogger(__name__)
 
 
+def _load_finmind_token(path: Path | str = FINMIND_TOKEN_FILE) -> str:
+    """讀取 FinMind API token：優先本地 finmind_token.json（api_token 鍵），其次環境變數。"""
+    path = Path(path)
+    try:
+        if path.exists():
+            token = (json.loads(path.read_text(encoding="utf-8")).get("api_token") or "").strip()
+            if token:
+                return token
+    except (OSError, json.JSONDecodeError, AttributeError) as e:
+        logger.warning("finmind_token.json 讀取失敗，改用環境變數：%s", e)
+    return (os.environ.get("FINMIND_TOKEN") or "").strip()
+
+
 @st.cache_resource
 def init_finmind() -> DataLoader:
-    """建立 FinMind DataLoader（單例）。若提供 FINMIND_TOKEN 則登入以提高速率上限。"""
+    """建立 FinMind DataLoader（單例）。有 token 則登入以提高速率上限。"""
     api = DataLoader()
-    token = os.environ.get("FINMIND_TOKEN")
+    token = _load_finmind_token()
     if token:
         try:
             api.login_by_token(api_token=token)

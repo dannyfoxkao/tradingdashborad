@@ -107,6 +107,28 @@ def test_fetch_index_close_returns_close_only(monkeypatch):
     assert isinstance(df.index, pd.DatetimeIndex)
 
 
+def test_load_token_prefers_file_over_env(tmp_path, monkeypatch):
+    p = tmp_path / "finmind_token.json"
+    p.write_text('{"api_token": " file-tok "}', encoding="utf-8")
+    monkeypatch.setenv("FINMIND_TOKEN", "env-tok")
+
+    assert finmind_mod._load_finmind_token(p) == "file-tok"
+
+
+def test_load_token_falls_back_to_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("FINMIND_TOKEN", "env-tok")
+
+    assert finmind_mod._load_finmind_token(tmp_path / "nope.json") == "env-tok"
+
+
+def test_load_token_bad_json_falls_back_to_env(tmp_path, monkeypatch):
+    p = tmp_path / "finmind_token.json"
+    p.write_text("{broken", encoding="utf-8")
+    monkeypatch.setenv("FINMIND_TOKEN", "env-tok")
+
+    assert finmind_mod._load_finmind_token(p) == "env-tok"
+
+
 def test_fetch_benchmark_data_delegates_to_index_close(monkeypatch):
     seen = {}
 

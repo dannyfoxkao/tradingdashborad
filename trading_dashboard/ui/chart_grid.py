@@ -16,6 +16,7 @@ from ..config import (
     HUNDRED_MILLION,
     parse_stock_id,
 )
+from ..data_sources.disposition import disposition_mask
 from ..data_sources.prefetch import prefetch_many
 from ..indicators import classify_trend, classify_volume, compute_alpha, volume_base
 from ..signals import evaluate_signals
@@ -131,11 +132,7 @@ def _empty_card_html(clean_id: str, name: str, reason: str) -> str:
 
 
 def _disposition_mask(index: pd.DatetimeIndex, windows: list[dict]) -> pd.Series:
-    mask = pd.Series(False, index=index)
-    norm = index.normalize()
-    for w in windows:
-        mask |= (norm >= w["start"]) & (norm <= w["end"])
-    return mask
+    return disposition_mask(index, windows)
 
 
 def _panel_html(clean_id, name, df, disp_windows, disp_mask, sub_chart_type, benchmark_df) -> str:
