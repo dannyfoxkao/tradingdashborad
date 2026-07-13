@@ -104,6 +104,52 @@ def test_buy_congestion_breakout():
     assert "糾結放量" in sig["buys"]
 
 
+def _with_prior_high(df, level=105.0):
+    df = df.copy()
+    df["PriorHigh20"] = level
+    return df
+
+
+def test_buy_b6_volume_breakout_prior_high():
+    df = _with_prior_high(_base_df())
+    _set(df, "Close", -2, 104.0)  # 昨收 ≤ 昨日前高
+    _set(df, "Close", -1, 106.0)  # 今收突破前高
+    _set(df, "Volume", -1, 2000.0)  # vr = 2.0 ≥ 1.5
+    sig = evaluate_signals(df)
+    assert "帶量破前高" in sig["buys"]
+
+
+def test_buy_b6_suppressed_in_disposition():
+    df = _with_prior_high(_base_df())
+    _set(df, "Close", -2, 104.0)
+    _set(df, "Close", -1, 106.0)
+    _set(df, "Volume", -1, 2000.0)
+    assert "帶量破前高" not in evaluate_signals(df, in_disp=True)["buys"]
+
+
+def test_buy_b6_needs_volume_ratio():
+    df = _with_prior_high(_base_df())
+    _set(df, "Close", -2, 104.0)
+    _set(df, "Close", -1, 106.0)  # 突破但量能常態 vr=1
+    assert "帶量破前高" not in evaluate_signals(df)["buys"]
+
+
+def test_buy_b6_absent_when_column_missing():
+    df = _base_df()  # 無 PriorHigh20 欄（enrich-only 資料）
+    _set(df, "Close", -1, 200.0)
+    _set(df, "Volume", -1, 2000.0)
+    sig = evaluate_signals(df)  # 不炸、且不誤觸發
+    assert "帶量破前高" not in sig["buys"]
+
+
+def test_buy_b6_not_first_day_above():
+    df = _with_prior_high(_base_df())
+    _set(df, "Close", -2, 106.0)  # 昨天已在前高之上 → 非「首日」突破
+    _set(df, "Close", -1, 107.0)
+    _set(df, "Volume", -1, 2000.0)
+    assert "帶量破前高" not in evaluate_signals(df)["buys"]
+
+
 # ── 賣警 ──
 
 

@@ -1,7 +1,7 @@
 """交易一致性訊號：純日線可自動化的買訊/賣警子集。
 
 盤中/題材/情緒類條件屬人工 checklist，不在此。純函式，可單元測試。
-  買訊：突破首根 / 出量 / 三日沒破低 / 多頭回測買點 / 糾結放量
+  買訊：突破首根 / 出量 / 三日沒破低 / 多頭回測買點 / 糾結放量 / 帶量破前高
   賣警：高位大黑K / 飆股破5日未站回 / 緩漲破月線未站回 / 連兩日收弱 / 短線過熱
 """
 
@@ -24,6 +24,8 @@ from .config import (
     TREND_SLOPE_LOOKBACK,
 )
 from .indicators import ma_slope
+
+MAX_BUY_SIGNALS = 6  # B3/B4/B5/H2/H3/B6（UI 徽章分母）
 
 
 def _bias(close: float, ma: float) -> float:
@@ -63,6 +65,19 @@ def _collect_buys(df, last, prev, slope5, slope10, slope20, bias5, vr, in_disp) 
         band = (max(mas) - min(mas)) / last["Close"] * 100
         if band < SIGNAL_BAND_MAX_PCT and vr >= SIGNAL_VOL_RATIO:
             buys.append("糾結放量")
+    # B6 帶量破前高：首日帶量突破 20 日前高（處置中量價失真 → 不計；缺欄相容 enrich-only 資料）
+    prior_high, prev_prior_high = last.get("PriorHigh20"), prev.get("PriorHigh20")
+    if (
+        not in_disp
+        and prior_high is not None
+        and prev_prior_high is not None
+        and pd.notna(prior_high)
+        and pd.notna(prev_prior_high)
+        and last["Close"] > prior_high
+        and prev["Close"] <= prev_prior_high
+        and vr >= SIGNAL_VOL_RATIO
+    ):
+        buys.append("帶量破前高")
     return buys
 
 
