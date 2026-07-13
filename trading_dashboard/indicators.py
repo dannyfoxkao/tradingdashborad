@@ -14,13 +14,18 @@ from .config import (
     ALPHA_BETA_MAX,
     ALPHA_BETA_MIN,
     ALPHA_WINDOW,
+    ATR_PERIOD,
     BEAR_LABELS,
     BULL_LABELS,
+    LONG_MA_WINDOWS,
     MA_WINDOWS,
     MACD_FAST,
     MACD_SIGNAL,
     MACD_SLOW,
     MIN_TREND_ROWS,
+    MOMENTUM_RET_WINDOWS,
+    PRIOR_LEVEL_WINDOWS,
+    RSI_PERIOD,
     TREND_BOTTOM_SLOPE_MIN,
     TREND_FLAT_SLOPE,
     TREND_HEAD_SLOPE_MAX,
@@ -51,6 +56,41 @@ def enrich(df: pd.DataFrame) -> pd.DataFrame:
     for w in TURN_MA_WINDOWS:
         df[f"Turn_MA{w}"] = df["Turnover"].rolling(w).mean()
     df["Vol_Std20"] = df["Volume"].rolling(VOL_STD_WINDOW).std()
+    return df
+
+
+def rsi(close: pd.Series, period: int = RSI_PERIOD) -> pd.Series:
+    """Wilder RSI：0~100，>70 過熱、<30 過冷。"""
+    delta = close.diff()
+    up = delta.clip(lower=0)
+    down = -delta.clip(upper=0)
+    roll_up = up.ewm(alpha=1 / period, adjust=False).mean()
+    roll_down = down.ewm(alpha=1 / period, adjust=False).mean()
+    rs = roll_up / roll_down.replace(0, np.nan)
+    return 100 - 100 / (1 + rs)
+
+
+def atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
+    """ATR：平均真實區間，衡量波動度（不預測方向，用於風控/停損距離）。"""
+    high, low, close = df["High"], df["Low"], df["Close"]
+    prev_close = close.shift(1)
+    tr = pd.concat([(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+    return tr.rolling(period).mean()
+
+
+def enrich_heavy(df: pd.DataFrame) -> pd.DataFrame:
+    """加上長週期均線、動能、ATR 與前高前低（策略/長線研判用；需暖身資料才成形）。"""
+    df = df.copy()
+    for w in LONG_MA_WINDOWS:
+        df[f"MA{w}"] = df["Close"].rolling(w).mean()
+    df["RSI14"] = rsi(df["Close"])
+    for w in MOMENTUM_RET_WINDOWS:
+        df[f"Ret_{w}"] = df["Close"].pct_change(w) * 100
+    df["ATR14"] = atr(df)
+    # 前高前低用「到前一日為止」的 N 日極值（shift(1) 避免看到未來）
+    for w in PRIOR_LEVEL_WINDOWS:
+        df[f"PriorHigh{w}"] = df["High"].rolling(w).max().shift(1)
+        df[f"PriorLow{w}"] = df["Low"].rolling(w).min().shift(1)
     return df
 
 

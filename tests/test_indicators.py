@@ -150,6 +150,66 @@ def test_classify_trend_oscillating_bearish_rank():
     assert result["rank"] == 5
 
 
+# ── rsi / atr / enrich_heavy（重型指標）──
+
+
+def test_rsi_bounds_and_direction():
+    # 鋸齒趨勢（漲多跌少 / 跌多漲少）；純單調序列分母為 0 → NaN（與平面版一致）
+    up_steps = [2.0 if i % 2 == 0 else -0.5 for i in range(40)]
+    down_steps = [-2.0 if i % 2 == 0 else 0.5 for i in range(40)]
+    rising = pd.Series(100.0 + np.cumsum(up_steps))
+    falling = pd.Series(100.0 + np.cumsum(down_steps))
+
+    assert indicators.rsi(rising).iloc[-1] > 70
+    assert indicators.rsi(falling).iloc[-1] < 30
+
+
+def test_atr_known_values():
+    n = 30
+    idx = pd.date_range("2026-01-01", periods=n, freq="B")
+    df = pd.DataFrame({"High": [101.0] * n, "Low": [99.0] * n, "Close": [100.0] * n}, index=idx)
+
+    out = indicators.atr(df)
+
+    assert abs(out.iloc[-1] - 2.0) < 1e-9  # 恆定區間 H−L=2 → ATR=2
+
+
+def test_enrich_heavy_adds_long_indicators():
+    n = 260
+    df = _make_df([100.0 + 0.1 * i for i in range(n)])
+
+    out = indicators.enrich_heavy(df)
+
+    for col in [
+        "MA120",
+        "MA200",
+        "RSI14",
+        "Ret_20",
+        "Ret_60",
+        "Ret_120",
+        "Ret_240",
+        "ATR14",
+        "PriorHigh20",
+        "PriorLow20",
+        "PriorHigh60",
+        "PriorLow60",
+    ]:
+        assert col in out.columns, col
+    assert np.isfinite(out["MA200"].iloc[-1])
+    assert np.isfinite(out["Ret_240"].iloc[-1])
+
+
+def test_enrich_heavy_prior_high_excludes_today():
+    n = 60
+    closes = [100.0] * n
+    df = _make_df(closes)
+    df.loc[df.index[-1], "High"] = 150.0  # 今日暴衝新高
+
+    out = indicators.enrich_heavy(df)
+
+    assert out["PriorHigh20"].iloc[-1] < 150.0  # shift(1)：前高不含今日，不看未來
+
+
 # ── compute_alpha ──
 
 

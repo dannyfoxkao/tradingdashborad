@@ -80,6 +80,33 @@ SIGNAL_OVERHEAT_BIAS5: float = 10.0  # 短線過熱乖離 %
 # ── 訊號歷史前瞻報酬 ──
 FORWARD_RETURN_DAYS: tuple[int, ...] = (5, 10, 20)  # 可選的 N 日後報酬
 
+# ── 還原股價（台股 ±10% 日限外＝除權/分割等公司行為）──
+BACK_ADJUST_DOWN: float = 0.88
+BACK_ADJUST_UP: float = 1.13
+
+# ── 重型指標（策略/長線研判）──
+FINMIND_WARMUP_DAYS: int = 400  # 暖身天數：讓 MA200 / 12個月動能在顯示區左緣成形
+LONG_MA_WINDOWS: tuple[int, ...] = (120, 200)
+RSI_PERIOD: int = 14
+ATR_PERIOD: int = 14
+MOMENTUM_RET_WINDOWS: tuple[int, ...] = (20, 60, 120, 240)  # ~1/3/6/12 個月
+PRIOR_LEVEL_WINDOWS: tuple[int, ...] = (20, 60)  # 前高前低視窗
+
+# ── 波動率框架（docs/volatility_framework.md §2/§5；(window, min_periods)）──
+VF_MIN_CLEAN_ROWS: int = 20  # 剔除後低於此列數 → 放棄剔除（避免全空）
+VF_ATR_FAST: tuple[int, int] = (5, 3)
+VF_ATR_SLOW: tuple[int, int] = (14, 8)
+VF_RET_ROLL: tuple[int, int] = (20, 15)
+VF_P80_YEAR: tuple[int, int] = (252, 60)  # 一年 P80
+VF_P80_WARN: tuple[int, int] = (120, 40)  # 120日 P80（警示層）
+VF_P80_Q: float = 0.80
+VF_RETSTD_Q60: float = 0.60
+VF_SNR5: tuple[int, int] = (5, 3)
+VF_ER: tuple[int, int] = (10, 6)  # Kaufman 效率比
+VF_FLIP: tuple[int, int] = (10, 6)  # 隔日翻轉率
+VF_VOLMA: tuple[int, int] = (20, 10)  # 剔除後量能基準
+VF_C20HIGH: tuple[int, int] = (20, 10)  # 收盤創 20 日新高
+
 # ── 族群動能 ──
 BULL_LABELS: frozenset[str] = frozenset({"強多", "底部翻揚", "震盪(偏多)"})
 BEAR_LABELS: frozenset[str] = frozenset({"弱勢", "震盪(偏空)", "頭部鈍化"})
