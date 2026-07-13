@@ -3,7 +3,14 @@
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-extend-exclude = [".venv"]
+extend-exclude = [
+    ".venv",
+    # 根目錄平面版舊模組：另一線持續開發的策略原型，與套件版暫時共存，
+    # 待紅K順風車等策略移植進 trading_dashboard/ 後移除，lint 暫不納管
+    "analysis.py", "backtest_tailwind.py", "config.py", "data.py", "leaderboard.py",
+    "sweep_limitup.py", "sweep_mabull.py", "tradingdahsboard.py",
+    "ui_grid.py", "ui_leaderboard.py", "ui_radar.py", "ui_today.py", "ui_weather.py",
+]
 
 [tool.ruff.lint]
 select = [

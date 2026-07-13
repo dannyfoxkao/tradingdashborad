@@ -4,6 +4,23 @@ leaderboard_history.csv
 signals_history.csv
 stock_config.json.bak
 
+# 回測快取與輸出（本地累積，不進版控）
+backtest_cache/
+backtest_trades.csv
+backtest_ignitions.csv
+backtest_summary.json
+backtest_trades_*.csv
+backtest_ignitions_*.csv
+backtest_summary_*.json
+disposition_calendar.csv
+
+# 原始處置/處分下載檔（整合進 disposition_calendar.csv 後即為衍生資料）
+disposal_information_*.csv
+punish.csv
+
+# FinMind API 憑證（本地填入，勿上版控）
+finmind_token.json
+
 # Python
 __pycache__/
 *.py[cod]
