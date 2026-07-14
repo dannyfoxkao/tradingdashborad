@@ -129,6 +129,14 @@ TW_SNR_TREND: float = 0.15  # §2 象限「SNR 高」門檻；§4 警示層上�
 TW_SNR_WARN_FLOOR: float = 0.05  # §4 性質切換警示下緣
 TW_CLOSE_HIGH_EPS: float = 1e-6  # 收=最高 的浮點容差
 
+# ── 回測 / 離線工具（tools/）──
+BACKTEST_CACHE_DIR: Path = BASE_DIR / "backtest_cache"  # 期間感知 pickle 快取（已 gitignore）
+BACKTEST_MAX_HOLD: int = 120  # 點火事件最長持有根數
+BACKTEST_MIN_ROWS: int = 40  # 快取最低資料列數
+BACKTEST_RET_FLOOR: float = -95.0  # 剔除資料異常造成的極端報酬
+BACKTEST_INDEX_WARMUP_DAYS: int = 90  # 大盤 regime 暖身（月線/MACD 期初成形）
+SYNC_WINDOWS: tuple[int, ...] = (0, 3)  # 族群同步視窗（±N 日）
+
 # ── 今日點火掃描面板 ──
 TODAY_LOOKBACK_OPTIONS: tuple[int, ...] = (1, 3, 5)  # 回看範圍（交易日）
 TODAY_PANEL_WINDOW_DAYS: int = 120  # 掃描抓取視窗（日曆日）
