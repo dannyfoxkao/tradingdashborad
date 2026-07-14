@@ -58,6 +58,7 @@ def test_app_renders_without_exception(monkeypatch):
     assert not at.exception
     assert at.title  # 有渲染出「監控板塊」標題
     assert any("大盤氣象台" in str(m.value) for m in at.markdown)  # 氣象台已渲染
+    assert any("紅K順風車" in str(m.value) for m in at.markdown)  # 順風車狀態列已渲染
 
 
 def test_app_shows_placeholder_card_when_data_missing(monkeypatch):

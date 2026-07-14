@@ -82,6 +82,7 @@ def main() -> None:
     st.sidebar.markdown("---")
     st.sidebar.header("📊 指標配置")
     sub_chart_type = st.sidebar.selectbox("副圖顯示內容", _SUB_CHART_OPTIONS)
+    show_tailwind = st.sidebar.checkbox("🚗 標記『紅K順風車』買賣點", value=True)
 
     # 4) 計算觀測區間（台灣時區）並抓取共用資料
     start_date = now_taipei - timedelta(days=time_window)
@@ -95,7 +96,15 @@ def main() -> None:
     radar_panel.render(group_choice, selected_stocks, stocks_pool, start_str, end_str, benchmark_df, disposition_map)
     momentum_panel.render(list(selected_stocks.keys()), start_str, end_str)
     chart_grid.render(
-        group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, end_str, benchmark_df, disposition_map
+        group_choice,
+        selected_stocks,
+        grid_cols,
+        sub_chart_type,
+        start_str,
+        end_str,
+        benchmark_df,
+        disposition_map,
+        show_tailwind=show_tailwind,
     )
 
 

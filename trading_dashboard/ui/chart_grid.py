@@ -18,8 +18,16 @@ from ..config import (
 )
 from ..data_sources.disposition import disposition_mask
 from ..data_sources.prefetch import prefetch_many
-from ..indicators import classify_trend, classify_volume, compute_alpha, volume_base
-from ..signals import evaluate_signals
+from ..indicators import (
+    classify_trend,
+    classify_volume,
+    compute_alpha,
+    compute_atr_stop,
+    compute_support_resistance,
+    volume_base,
+)
+from ..signals import MAX_BUY_SIGNALS, evaluate_signals
+from ..strategy import red_k_tailwind_signals
 from .components import badge_html, get_rangebreaks, price_badge
 
 logger = logging.getLogger(__name__)
@@ -27,14 +35,24 @@ logger = logging.getLogger(__name__)
 _MIN_ROWS = 5
 _CANDLE_UP, _CANDLE_DOWN = "#ef5350", "#26a69a"
 _MA_COLORS = {"MA5": "#ffa726", "MA10": "#ec407a", "MA20": "#29b6f6", "MA60": "#ab47bc"}
+_MA200_COLOR = "#90a4ae"  # 長線趨勢濾網（灰虛線，成形才畫）
 # 副圖均線的單一事實來源：圖例與繪線皆由此導出，保證兩者一致
 _SUB_MA_COLORS: dict[int, str] = {5: "#ffa726", 20: "#29b6f6"}
 _TURN_BAR, _DUAL_LINE, _DISP_FILL = "#455a64", "#cfd8dc", "#7e57c2"
+_ACCEL_FILL = "#fbc02d"  # 波動加速背景
 _TURN_TYPE, _DUAL_TYPE = "成交金額 (估算)", "量 + 金額雙對比"
 
 
 def render(
-    group_choice, selected_stocks, grid_cols, sub_chart_type, start_str, end_str, benchmark_df, disposition_map
+    group_choice,
+    selected_stocks,
+    grid_cols,
+    sub_chart_type,
+    start_str,
+    end_str,
+    benchmark_df,
+    disposition_map,
+    show_tailwind: bool = True,
 ) -> None:
     tickers = list(selected_stocks.keys())
     # 先平行預抓整個族群，迴圈內只做 dict 查找（修序列阻塞）
@@ -68,10 +86,13 @@ def render(
                         benchmark_df,
                         disposition_map,
                         key=f"{ticker}_{i + idx}",
+                        show_tailwind=show_tailwind,
                     )
 
 
-def _render_card(clean_id, name, df, sub_chart_type, benchmark_df, disposition_map, key="") -> None:
+def _render_card(
+    clean_id, name, df, sub_chart_type, benchmark_df, disposition_map, key="", show_tailwind: bool = True
+) -> None:
     disp_windows = disposition_map.get(clean_id, [])
     disp_mask = _disposition_mask(df.index, disp_windows)
     st.markdown(
@@ -81,7 +102,48 @@ def _render_card(clean_id, name, df, sub_chart_type, benchmark_df, disposition_m
     sig_html = _signals_html(clean_id, df, bool(disp_mask.iloc[-1]))
     if sig_html:
         st.markdown(sig_html, unsafe_allow_html=True)
-    st.plotly_chart(_build_figure(df, sub_chart_type, disp_windows), width="stretch", key=f"chart_{key}")
+
+    tw = _tailwind_result(clean_id, df) if show_tailwind else None
+    if tw:
+        st.markdown(_tailwind_html(tw), unsafe_allow_html=True)
+    sr = compute_support_resistance(df)
+    atr_stop = compute_atr_stop(df)
+
+    st.plotly_chart(
+        _build_figure(df, sub_chart_type, disp_windows, tw=tw, sr=sr, atr_stop=atr_stop),
+        width="stretch",
+        key=f"chart_{key}",
+    )
+
+
+def _tailwind_result(clean_id: str, df: pd.DataFrame) -> dict | None:
+    try:
+        return red_k_tailwind_signals(df)
+    except Exception as e:  # 策略評估失敗不應讓卡片崩潰
+        logger.warning("紅K順風車評估失敗 %s：%s", clean_id, e)
+        return None
+
+
+def _tailwind_html(tw: dict) -> str:
+    """🚗 紅K順風車狀態列：象限／波動狀態／持倉／關鍵指標／訊號計數。"""
+    latest = tw["latest"]
+    if latest["accel"]:
+        vstate = f'<span style="color:{_ACCEL_FILL};">🔥波動加速</span>'
+    else:
+        vstate = '<span style="color:#9e9e9e;">波動中性</span>'
+    pos_txt = (
+        '<span style="color:#ff8a80;">持倉中</span>' if latest["in_pos"] else '<span style="color:#888;">空手</span>'
+    )
+    return (
+        f'<div style="padding:4px 10px;background:#161616;border-radius:6px;'
+        f'margin-bottom:5px;font-size:10px;color:#aaa;">'
+        f"🚗 紅K順風車｜{latest['quad']}｜{vstate}｜{pos_txt}　"
+        f"ATR5% {latest['atr5_pct']}／ATR14% {latest['atr14_pct']}　"
+        f"SNR {latest['snr']}｜翻轉 {latest['flip_pct']}%　"
+        f'<span style="color:#ff8a80;">▲買{len(tw["buys"])}</span> '
+        f'<span style="color:#80cbc4;">▼賣{len(tw["sells"])}</span> '
+        f'<span style="color:#ffb74d;">⚠{len(tw["warns"])}</span></div>'
+    )
 
 
 def _chip(text: str, bg: str) -> str:
@@ -103,7 +165,7 @@ def _signals_html(clean_id: str, df: pd.DataFrame, in_disp: bool) -> str:
     buy_chips = "".join(_chip(b, "#1b5e20") for b in sig["buys"])
     sell_chips = "".join(_chip(s, "#b71c1c") for s in sig["sells"])
     nb, ns = len(sig["buys"]), len(sig["sells"])
-    buy_badge = f'<span style="color:#66bb6a;font-weight:bold;">📥 進場 {nb}/5</span>'
+    buy_badge = f'<span style="color:#66bb6a;font-weight:bold;">📥 進場 {nb}/{MAX_BUY_SIGNALS}</span>'
     sell_badge = (
         f'<span style="color:#ef5350;font-weight:bold;margin-left:10px;">📤 出場警示 {ns}</span>'
         if ns
@@ -183,7 +245,7 @@ def _panel_html(clean_id, name, df, disp_windows, disp_mask, sub_chart_type, ben
             <div>{disp_html}{trend_html}{vol_html}{alpha_html}</div>
         </div>
         <div style="font-size: 11px; color: #888888; font-family: monospace;">
-            價MA: <span style="color:#ffa726; margin-right:5px;">●5</span><span style="color:#ec407a; margin-right:5px;">●10</span><span style="color:#29b6f6; margin-right:5px;">●20</span><span style="color:#ab47bc; margin-right:12px;">●60</span>
+            價MA: <span style="color:#ffa726; margin-right:5px;">●5</span><span style="color:#ec407a; margin-right:5px;">●10</span><span style="color:#29b6f6; margin-right:5px;">●20</span><span style="color:#ab47bc; margin-right:5px;">●60</span><span style="color:{_MA200_COLOR}; margin-right:12px;">┈200</span>
             {sub_label}: {sub_legend}
         </div>
     </div>
@@ -203,7 +265,14 @@ def _alpha_badge(alpha_val: float, beta: float) -> str:
     return badge_html(f"α {sign}{alpha_val:.1f}% (β{beta:.1f})", bg, icon)
 
 
-def _build_figure(df: pd.DataFrame, sub_chart_type: str, disp_windows: list[dict]) -> go.Figure:
+def _build_figure(
+    df: pd.DataFrame,
+    sub_chart_type: str,
+    disp_windows: list[dict],
+    tw: dict | None = None,
+    sr: dict | None = None,
+    atr_stop: dict | None = None,
+) -> go.Figure:
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.70, 0.30])
     display_vol = df["Volume"] / 1000
     vol_colors = [_CANDLE_UP if c >= o else _CANDLE_DOWN for o, c in zip(df["Open"], df["Close"], strict=False)]
@@ -225,7 +294,19 @@ def _build_figure(df: pd.DataFrame, sub_chart_type: str, disp_windows: list[dict
     )
     for ma, color in _MA_COLORS.items():
         fig.add_trace(go.Scatter(x=df.index, y=df[ma], mode="lines", line={"color": color, "width": 1.2}), row=1, col=1)
+    # 長線趨勢濾網 MA200（灰虛線，僅在成形時繪製）
+    if "MA200" in df.columns and df["MA200"].notna().any():
+        fig.add_trace(
+            go.Scatter(
+                x=df.index, y=df["MA200"], mode="lines", line={"color": _MA200_COLOR, "width": 1.0, "dash": "dot"}
+            ),
+            row=1,
+            col=1,
+        )
 
+    if tw:
+        _add_tailwind_traces(fig, df, tw)
+    _add_level_lines(fig, sr, atr_stop)
     _add_subchart(fig, df, sub_chart_type, display_vol, vol_colors)
 
     fig.update_layout(
@@ -248,10 +329,91 @@ def _build_figure(df: pd.DataFrame, sub_chart_type: str, disp_windows: list[dict
     return fig
 
 
+def _add_tailwind_traces(fig: go.Figure, df: pd.DataFrame, tw: dict) -> None:
+    """紅K順風車覆蓋層：波動加速背景、2×ATR trail、▲買/▼賣/★警示標記。"""
+    accel = tw.get("accel_mask")
+    if accel is not None and accel.any():  # 波動加速：淡黃背景區段
+        groups = (accel != accel.shift()).cumsum()
+        for _, seg in accel[accel].groupby(groups[accel]):
+            fig.add_vrect(
+                x0=seg.index.min(),
+                x1=seg.index.max(),
+                fillcolor=_ACCEL_FILL,
+                opacity=0.06,
+                line_width=0,
+                layer="below",
+                row=1,
+                col=1,
+            )
+    trail = tw.get("trail")
+    if trail is not None and trail.notna().any():  # 持倉段才有值，空手為 NaN 自動斷線
+        fig.add_trace(
+            go.Scatter(x=df.index, y=trail, mode="lines", line={"color": "#ffa726", "width": 1.0, "dash": "dot"}),
+            row=1,
+            col=1,
+        )
+    marker_specs = (
+        (tw["buys"], 0.985, "triangle-up", 12, "#ff5252", "買"),
+        (tw["sells"], 1.015, "triangle-down", 12, "#26a69a", "賣"),
+        (tw["warns"], 1.03, "star", 9, "#ffb74d", "警示"),
+    )
+    for events, y_mult, symbol, size, color, label in marker_specs:
+        if not events:
+            continue
+        fig.add_trace(
+            go.Scatter(
+                x=[e["date"] for e in events],
+                y=[e["price"] * y_mult for e in events],
+                mode="markers",
+                marker={"symbol": symbol, "size": size, "color": color, "line": {"width": 1, "color": "#fff"}},
+                text=[e["reason"] for e in events],
+                hovertemplate=label + "：%{text}<br>%{x|%Y-%m-%d}<extra></extra>",
+            ),
+            row=1,
+            col=1,
+        )
+
+
+def _add_level_lines(fig: go.Figure, sr: dict | None, atr_stop: dict | None) -> None:
+    """支撐壓力（前高前低）＋ ATR 停損：主圖水平參考線。"""
+    if sr:
+        fig.add_hline(
+            y=sr["resistance"],
+            line={"color": _CANDLE_UP, "width": 0.8, "dash": "dash"},
+            annotation_text="壓",
+            annotation_position="top left",
+            annotation_font_size=9,
+            annotation_font_color=_CANDLE_UP,
+            row=1,
+            col=1,
+        )
+        fig.add_hline(
+            y=sr["support"],
+            line={"color": _CANDLE_DOWN, "width": 0.8, "dash": "dash"},
+            annotation_text="撐",
+            annotation_position="bottom left",
+            annotation_font_size=9,
+            annotation_font_color=_CANDLE_DOWN,
+            row=1,
+            col=1,
+        )
+    if atr_stop:
+        fig.add_hline(
+            y=atr_stop["stop"],
+            line={"color": "#ffa726", "width": 0.8, "dash": "dot"},
+            annotation_text="停損2×ATR",
+            annotation_position="bottom right",
+            annotation_font_size=9,
+            annotation_font_color="#ffa726",
+            row=1,
+            col=1,
+        )
+
+
 def _add_subchart(fig, df, sub_chart_type, display_vol, vol_colors) -> None:
     div = HUNDRED_MILLION
     if sub_chart_type in ("成交量", _DUAL_TYPE):
-        fig.add_trace(go.Bar(x=df.index, y=display_vol, marker_color=vol_colors, opacity=0.4), row=2, col=1)
+        fig.add_trace(go.Bar(x=df.index, y=display_vol, marker_color=vol_colors, opacity=1.0), row=2, col=1)
         for w, color in _SUB_MA_COLORS.items():
             fig.add_trace(
                 go.Scatter(x=df.index, y=df[f"Vol_MA{w}"] / 1000, mode="lines", line={"color": color, "width": 1.0}),
