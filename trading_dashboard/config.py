@@ -107,6 +107,18 @@ VF_FLIP: tuple[int, int] = (10, 6)  # 隔日翻轉率
 VF_VOLMA: tuple[int, int] = (20, 10)  # 剔除後量能基準
 VF_C20HIGH: tuple[int, int] = (20, 10)  # 收盤創 20 日新高
 
+# ── ATR 停損 / 支撐壓力 / 長線濾網 / 個股動能 ──
+ATR_STOP_MIN_ROWS: int = 15
+ATR_STOP_MULT: float = 2.0  # 主要建議
+ATR_STOP_TIGHT_MULT: float = 1.5
+ATR_STOP_LOOSE_MULT: float = 3.0
+SR_WINDOW: int = 60  # 支撐壓力視窗（前高前低）
+LONGTERM_MIN_ROWS: int = 6
+LONGTERM_SLOPE_LOOKBACK: int = 20  # 長均線斜率回看根數
+STOCK_MOMENTUM_MIN_ROWS: int = 21
+STOCK_MOMENTUM_STRONG: float = 0.75  # 多數區間為正 → 強動能
+STOCK_MOMENTUM_WEAK: float = 0.25  # 多數區間為負 → 弱動能
+
 # ── 紅K順風車策略（docs/volatility_framework.md §3 進場 / §4 出場）──
 TW_MIN_ROWS: int = 25  # 引擎最低資料列數
 TW_CHG_THR: float = 6.5  # Ⓐ 出量突破：日漲幅門檻 %

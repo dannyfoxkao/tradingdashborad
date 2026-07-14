@@ -210,6 +210,94 @@ def test_enrich_heavy_prior_high_excludes_today():
     assert out["PriorHigh20"].iloc[-1] < 150.0  # shift(1)：前高不含今日，不看未來
 
 
+# ── compute_atr_stop / compute_support_resistance / classify_long_term / stock_momentum ──
+
+
+def _flat_df(n=30, close=100.0):
+    idx = pd.date_range("2026-01-01", periods=n, freq="B")
+    return pd.DataFrame(
+        {"Open": close, "High": close + 1, "Low": close - 1, "Close": close, "Volume": 1000.0}, index=idx
+    )
+
+
+def test_compute_atr_stop_levels_and_none_paths():
+    df = _flat_df()
+    df["ATR14"] = 2.0
+
+    stop = indicators.compute_atr_stop(df)
+
+    assert stop["stop"] == 96.0  # 100 − 2×2
+    assert stop["stop_tight"] == 97.0
+    assert stop["stop_loose"] == 94.0
+    assert stop["atr_pct"] == 2.0
+
+    assert indicators.compute_atr_stop(_flat_df()) is None  # 無 ATR14 欄
+    df.iloc[-1, df.columns.get_loc("ATR14")] = np.nan
+    assert indicators.compute_atr_stop(df) is None
+
+
+def test_compute_support_resistance_rr_and_broken():
+    df = _flat_df()
+    df["PriorHigh60"] = 110.0
+    df["PriorLow60"] = 95.0
+
+    sr = indicators.compute_support_resistance(df)
+
+    assert sr["resistance"] == 110.0
+    assert sr["support"] == 95.0
+    assert sr["rr"] == 2.0  # 上檔10 / 下檔5
+    assert sr["broken"] is False
+
+    df["PriorHigh60"] = 99.0  # 已站上前高
+    assert indicators.compute_support_resistance(df)["broken"] is True
+    assert indicators.compute_support_resistance(_flat_df()) is None  # 缺欄 → None
+
+
+def test_classify_long_term_ma_priority_and_labels():
+    df = _flat_df(n=30)
+    df["MA200"] = 90.0
+    df.iloc[-21, df.columns.get_loc("MA200")] = 85.0  # 20 根回看 → 上彎
+
+    result = indicators.classify_long_term(df)
+    assert result["label"] == "順風"  # 收盤(100) ≥ MA200 且上彎
+    assert result["ma_used"] == "MA200"
+
+    df2 = _flat_df(n=30)
+    df2["MA120"] = 110.0  # 無 MA200 → 遞補 MA120；跌破且下彎
+    df2.iloc[-21, df2.columns.get_loc("MA120")] = 115.0
+    result2 = indicators.classify_long_term(df2)
+    assert result2["label"] == "逆風"
+    assert result2["ma_used"] == "MA120"
+
+    df3 = _flat_df(n=30)
+    df3["MA200"] = 90.0
+    df3.iloc[-21, df3.columns.get_loc("MA200")] = 95.0  # 站上但下彎 → 中性轉折
+    assert indicators.classify_long_term(df3)["label"] == "中性轉折"
+
+    assert indicators.classify_long_term(_flat_df()) is None  # 無任何長均線
+
+
+def test_stock_momentum_strong_weak_neutral():
+    df = _flat_df()
+    for col, val in {"Ret_20": 5.0, "Ret_60": 8.0, "Ret_120": 12.0, "Ret_240": 20.0, "RSI14": 65.0}.items():
+        df[col] = val
+    strong = indicators.stock_momentum(df)
+    assert strong["label"] == "強動能"
+    assert strong["score"] == 4
+    assert strong["rsi"] == 65.0
+
+    for col in ("Ret_20", "Ret_60", "Ret_120", "Ret_240"):
+        df[col] = -5.0
+    assert indicators.stock_momentum(df)["label"] == "弱動能"
+
+    df["Ret_20"] = 5.0
+    df["Ret_60"] = 5.0  # 2正2負 → 中性
+    assert indicators.stock_momentum(df)["label"] == "中性動能"
+
+    assert indicators.stock_momentum(_flat_df(n=10)) is None  # 資料不足
+    assert indicators.stock_momentum(_flat_df()) is None  # 無動能欄位
+
+
 # ── compute_alpha ──
 
 

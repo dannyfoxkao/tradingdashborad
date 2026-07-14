@@ -15,9 +15,15 @@ from .config import (
     ALPHA_BETA_MIN,
     ALPHA_WINDOW,
     ATR_PERIOD,
+    ATR_STOP_LOOSE_MULT,
+    ATR_STOP_MIN_ROWS,
+    ATR_STOP_MULT,
+    ATR_STOP_TIGHT_MULT,
     BEAR_LABELS,
     BULL_LABELS,
     LONG_MA_WINDOWS,
+    LONGTERM_MIN_ROWS,
+    LONGTERM_SLOPE_LOOKBACK,
     MA_WINDOWS,
     MACD_FAST,
     MACD_SIGNAL,
@@ -26,6 +32,10 @@ from .config import (
     MOMENTUM_RET_WINDOWS,
     PRIOR_LEVEL_WINDOWS,
     RSI_PERIOD,
+    SR_WINDOW,
+    STOCK_MOMENTUM_MIN_ROWS,
+    STOCK_MOMENTUM_STRONG,
+    STOCK_MOMENTUM_WEAK,
     TREND_BOTTOM_SLOPE_MIN,
     TREND_FLAT_SLOPE,
     TREND_HEAD_SLOPE_MAX,
@@ -260,6 +270,126 @@ def classify_market_weather(df: pd.DataFrame | None) -> dict | None:
         "wind": "沒風 (MACD往下)",
         "action": "短線休息 or 波段佈局",
         "mind": "股票易跌，休息至上",
+    }
+
+
+def compute_atr_stop(df: pd.DataFrame | None, mult: float = ATR_STOP_MULT) -> dict | None:
+    """ATR 風控停損：停損放 1.5~3 倍 ATR 之外，避免被正常波動掃掉。
+
+    回傳 {atr, atr_pct, stop, stop_tight, stop_loose, mult}；資料不足回 None。
+    """
+    if df is None or len(df) < ATR_STOP_MIN_ROWS or "ATR14" not in df.columns:
+        return None
+    latest = df.iloc[-1]
+    atr_val = latest.get("ATR14")
+    close = latest["Close"]
+    if atr_val is None or pd.isna(atr_val) or atr_val <= 0 or close <= 0:
+        return None
+    return {
+        "atr": round(float(atr_val), 2),
+        "atr_pct": round(atr_val / close * 100, 1),
+        "stop": round(close - mult * atr_val, 2),
+        "stop_tight": round(close - ATR_STOP_TIGHT_MULT * atr_val, 2),
+        "stop_loose": round(close - ATR_STOP_LOOSE_MULT * atr_val, 2),
+        "mult": mult,
+    }
+
+
+def compute_support_resistance(df: pd.DataFrame | None, window: int = SR_WINDOW) -> dict | None:
+    """支撐壓力：前高＝壓力（潛在報酬）、前低＝支撐（風險/停損參考）＋風險報酬比。
+
+    broken=True 代表已突破前高（強勢）。回傳 None 表示資料不足。
+    """
+    if df is None or len(df) < 2:
+        return None
+    latest = df.iloc[-1]
+    close = latest["Close"]
+    res = latest.get(f"PriorHigh{window}")
+    sup = latest.get(f"PriorLow{window}")
+    if res is None or sup is None or pd.isna(res) or pd.isna(sup) or close <= 0:
+        return None
+
+    upside = res - close
+    downside = close - sup
+    return {
+        "resistance": round(float(res), 2),
+        "support": round(float(sup), 2),
+        "rr": round(upside / downside, 2) if (downside > 0 and upside > 0) else None,
+        "upside_pct": round(upside / close * 100, 1),
+        "downside_pct": round(downside / close * 100, 1),
+        "window": window,
+        "broken": bool(upside <= 0),
+    }
+
+
+def classify_long_term(df: pd.DataFrame | None) -> dict | None:
+    """長線趨勢濾網：取最長且已成形的均線（MA200 → MA120 → MA60）判「順風/逆風」。
+
+    🌤️ 順風＝站上長均線且上彎；⛈️ 逆風＝跌破且下彎；🌥️ 其餘為中性轉折。
+    回傳 {label, icon, bg, ma_used, days, slope}；資料不足回 None。
+    """
+    if df is None or len(df) < LONGTERM_MIN_ROWS:
+        return None
+    latest = df.iloc[-1]
+    ma_col = next((col for col in ("MA200", "MA120", "MA60") if col in df.columns and pd.notna(latest[col])), None)
+    if ma_col is None:
+        return None
+
+    ma_val = latest[ma_col]
+    slope = 0.0
+    if len(df) > LONGTERM_SLOPE_LOOKBACK:
+        ref = df[ma_col].iloc[-1 - LONGTERM_SLOPE_LOOKBACK]
+        if pd.notna(ref) and ref > 0:
+            slope = (ma_val - ref) / ref * 100
+
+    up, above = slope > 0, latest["Close"] >= ma_val
+    days = ma_col.replace("MA", "")
+    if above and up:
+        return {"label": "順風", "icon": "🌤️", "bg": "#2e7d32", "ma_used": ma_col, "days": days, "slope": slope}
+    if not above and not up:
+        return {"label": "逆風", "icon": "⛈️", "bg": "#b71c1c", "ma_used": ma_col, "days": days, "slope": slope}
+    return {"label": "中性轉折", "icon": "🌥️", "bg": "#546e7a", "ma_used": ma_col, "days": days, "slope": slope}
+
+
+def stock_momentum(df: pd.DataFrame | None) -> dict | None:
+    """個股時間序列動能（1/3/6/12 個月報酬＋RSI）；強者續強、弱者續弱。
+
+    自平面版 compute_momentum 改名——與族群版 compute_momentum(labels) 同名不同義。
+    回傳 {r1, r3, r6, r12, rsi, score, n, label, icon, bg}；資料不足回 None。
+    """
+    if df is None or len(df) < STOCK_MOMENTUM_MIN_ROWS:
+        return None
+    latest = df.iloc[-1]
+
+    def _get(col: str) -> float | None:
+        value = latest.get(col)
+        return round(float(value), 1) if (value is not None and pd.notna(value)) else None
+
+    r1, r3, r6, r12 = _get("Ret_20"), _get("Ret_60"), _get("Ret_120"), _get("Ret_240")
+    values = [x for x in (r1, r3, r6, r12) if x is not None]
+    if not values:
+        return None
+    pos = sum(1 for x in values if x > 0)
+    ratio = pos / len(values)
+
+    if ratio >= STOCK_MOMENTUM_STRONG and (r3 is None or r3 > 0):
+        label, icon, bg = "強動能", "🚀", "#2e7d32"
+    elif ratio <= STOCK_MOMENTUM_WEAK and (r3 is None or r3 < 0):
+        label, icon, bg = "弱動能", "🐢", "#b71c1c"
+    else:
+        label, icon, bg = "中性動能", "⚖️", "#546e7a"
+
+    return {
+        "r1": r1,
+        "r3": r3,
+        "r6": r6,
+        "r12": r12,
+        "rsi": _get("RSI14"),
+        "score": pos,
+        "n": len(values),
+        "label": label,
+        "icon": icon,
+        "bg": bg,
     }
 
 
