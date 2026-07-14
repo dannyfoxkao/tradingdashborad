@@ -5,8 +5,9 @@ target-version = "py310"
 line-length = 120
 extend-exclude = [
     ".venv",
-    # 根目錄平面版舊模組：另一線持續開發的策略原型，與套件版暫時共存，
-    # 待紅K順風車等策略移植進 trading_dashboard/ 後移除，lint 暫不納管
+    # 根目錄平面版舊模組：與套件版暫時共存，待策略移植完成後移除，lint 暫不納管。
+    # 注意：裸檔名會連 tools/ 同名檔一起排除——過渡期以 `ruff check tools` 手動補檢，
+    # 平面模組刪除（P5）後本清單一併移除、全面納管。
     "analysis.py", "backtest_tailwind.py", "config.py", "data.py", "leaderboard.py",
     "sweep_limitup.py", "sweep_mabull.py", "tradingdahsboard.py",
     "ui_grid.py", "ui_leaderboard.py", "ui_radar.py", "ui_today.py", "ui_weather.py",
@@ -27,6 +28,9 @@ select = [
 # E501：ui 模組的 HTML 模板字串必然超長，formatter 無法安全折行字串
 # RUF001/002/003：繁中文案的全形標點誤報（本專案 docstring/註解為中文）
 ignore = ["E501", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tools/*" = ["E402"]  # CLI 需先 sys.path bootstrap 才能 import 套件
 
 [tool.mypy]
 # 溫和模式：碼庫尚未全面型別註記，先檢查既有註記與明顯錯誤

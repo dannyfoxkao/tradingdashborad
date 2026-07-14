@@ -29,7 +29,7 @@ jobs:
         run: ruff format --check .
 
       - name: Mypy
-        run: mypy trading_dashboard app.py
+        run: mypy trading_dashboard app.py tools
 
       - name: Pytest（覆蓋率門檻 80%）
         run: pytest --cov=trading_dashboard
