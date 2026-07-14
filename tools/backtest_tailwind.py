@@ -71,12 +71,18 @@ def print_report(overall, sync, regime, period, coverage, missing) -> None:
         print(f"  ! 尚有 {len(missing)} 檔未抓到（FinMind 限流）→ 再跑一次即補齊")
     _line()
     print("  報告1 · 整體績效")
-    print(f"    交易 {overall['total']} 筆／{overall['stocks']} 檔  勝率 {overall['win_rate']}%"
-          f"（{overall['wins']}勝 {overall['losses']}敗）")
-    print(f"    期望值 {overall['expectancy']:+}%／筆  中位 {overall['median']:+}%  "
-          f"賺賠比 {overall['payoff']}:1  獲利因子 {overall['profit_factor']}")
-    print(f"    均賺 {overall['avg_win']:+}%／均賠 {overall['avg_loss']:+}%  "
-          f"最大 {overall['max_win']:+}% / {overall['max_loss']:+}%  均持 {overall['avg_days']} 天")
+    print(
+        f"    交易 {overall['total']} 筆／{overall['stocks']} 檔  勝率 {overall['win_rate']}%"
+        f"（{overall['wins']}勝 {overall['losses']}敗）"
+    )
+    print(
+        f"    期望值 {overall['expectancy']:+}%／筆  中位 {overall['median']:+}%  "
+        f"賺賠比 {overall['payoff']}:1  獲利因子 {overall['profit_factor']}"
+    )
+    print(
+        f"    均賺 {overall['avg_win']:+}%／均賠 {overall['avg_loss']:+}%  "
+        f"最大 {overall['max_win']:+}% / {overall['max_loss']:+}%  均持 {overall['avg_days']} 天"
+    )
     for key, grp in overall["by_hold"].items():
         print(f"      持有 {key:>9}  n={grp['n']:>4}  win {grp['win']:>5}%  avg {grp['avg']:+.1f}%")
     _line()
@@ -85,7 +91,9 @@ def print_report(overall, sync, regime, period, coverage, missing) -> None:
         if grp is None:
             print(f"    {key:<22}  無資料")
             continue
-        print(f"    {key:<22}  n={grp['n']:>4}  win {grp['win']:>5}%  期望 {grp['exp']:+6.2f}%  中位 {grp['med']:+.2f}%")
+        print(
+            f"    {key:<22}  n={grp['n']:>4}  win {grp['win']:>5}%  期望 {grp['exp']:+6.2f}%  中位 {grp['med']:+.2f}%"
+        )
     _line()
     print("  報告2 · 族群同步進攻（±3 日）")
     for key, grp in sync.get("w3", {}).items():
@@ -109,7 +117,9 @@ def main() -> None:
     cache_dir = BACKTEST_CACHE_DIR / f"{args.start}_{args.end}"
 
     uniq, groups, market = backtest.build_universe(exclude)
-    print(f"股池 {len(uniq)} 檔（排除：{'、'.join(sorted(exclude)) or '無'}）  期間 {args.start}~{args.end}  快取續傳中…")
+    print(
+        f"股池 {len(uniq)} 檔（排除：{'、'.join(sorted(exclude)) or '無'}）  期間 {args.start}~{args.end}  快取續傳中…"
+    )
     cached, newly, miss = ensure_cache(uniq, args.start, args.end, cache_dir, args.sleep, args.refresh)
     print(f"本次新抓 {newly} 檔，快取覆蓋 {len(cached)}/{len(uniq)}")
     if not cached:

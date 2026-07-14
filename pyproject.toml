@@ -3,15 +3,7 @@
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-extend-exclude = [
-    ".venv",
-    # 根目錄平面版舊模組：與套件版暫時共存，待策略移植完成後移除，lint 暫不納管。
-    # 注意：裸檔名會連 tools/ 同名檔一起排除——過渡期以 `ruff check tools` 手動補檢，
-    # 平面模組刪除（P5）後本清單一併移除、全面納管。
-    "analysis.py", "backtest_tailwind.py", "config.py", "data.py", "leaderboard.py",
-    "sweep_limitup.py", "sweep_mabull.py", "tradingdahsboard.py",
-    "ui_grid.py", "ui_leaderboard.py", "ui_radar.py", "ui_today.py", "ui_weather.py",
-]
+extend-exclude = [".venv"]
 
 [tool.ruff.lint]
 select = [
