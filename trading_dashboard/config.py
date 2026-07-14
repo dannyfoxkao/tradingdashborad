@@ -107,6 +107,16 @@ VF_FLIP: tuple[int, int] = (10, 6)  # 隔日翻轉率
 VF_VOLMA: tuple[int, int] = (20, 10)  # 剔除後量能基準
 VF_C20HIGH: tuple[int, int] = (20, 10)  # 收盤創 20 日新高
 
+# ── 紅K順風車策略（docs/volatility_framework.md §3 進場 / §4 出場）──
+TW_MIN_ROWS: int = 25  # 引擎最低資料列數
+TW_CHG_THR: float = 6.5  # Ⓐ 出量突破：日漲幅門檻 %
+TW_VOL_MULT: float = 1.5  # Ⓐ 出量突破：量 ≥ N×20日均量（處置剔除後）
+TW_LIMIT_UP_THR: float = 9.5  # Ⓑ 鎖漲停：日漲幅門檻 %（台股 10% 日限的 proxy）
+TW_ATR_TRAIL_MULT: float = 2.0  # 交易倉：進場後最高收盤 − N×ATR14 移動停利
+TW_SNR_TREND: float = 0.15  # §2 象限「SNR 高」門檻；§4 警示層上緣
+TW_SNR_WARN_FLOOR: float = 0.05  # §4 性質切換警示下緣
+TW_CLOSE_HIGH_EPS: float = 1e-6  # 收=最高 的浮點容差
+
 # ── 族群動能 ──
 BULL_LABELS: frozenset[str] = frozenset({"強多", "底部翻揚", "震盪(偏多)"})
 BEAR_LABELS: frozenset[str] = frozenset({"弱勢", "震盪(偏空)", "頭部鈍化"})
