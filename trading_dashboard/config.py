@@ -129,6 +129,11 @@ TW_SNR_TREND: float = 0.15  # §2 象限「SNR 高」門檻；§4 警示層上�
 TW_SNR_WARN_FLOOR: float = 0.05  # §4 性質切換警示下緣
 TW_CLOSE_HIGH_EPS: float = 1e-6  # 收=最高 的浮點容差
 
+# ── 今日點火掃描面板 ──
+TODAY_LOOKBACK_OPTIONS: tuple[int, ...] = (1, 3, 5)  # 回看範圍（交易日）
+TODAY_PANEL_WINDOW_DAYS: int = 120  # 掃描抓取視窗（日曆日）
+GROUP_RALLY_MIN: int = 3  # 族群齊發：視窗內同族群 ≥N 檔點火
+
 # ── 族群動能 ──
 BULL_LABELS: frozenset[str] = frozenset({"強多", "底部翻揚", "震盪(偏多)"})
 BEAR_LABELS: frozenset[str] = frozenset({"弱勢", "震盪(偏空)", "頭部鈍化"})

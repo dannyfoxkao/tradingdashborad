@@ -15,6 +15,7 @@ import trading_dashboard.indicators as indicators
 import trading_dashboard.ui.chart_grid as chart_grid_mod
 import trading_dashboard.ui.momentum_panel as momentum_mod
 import trading_dashboard.ui.radar_panel as radar_mod
+import trading_dashboard.ui.today_panel as today_mod
 from trading_dashboard.config import parse_stock_id
 
 APP_PATH = str(Path(__file__).resolve().parent.parent / "app.py")
@@ -52,6 +53,7 @@ def test_app_renders_without_exception(monkeypatch):
     monkeypatch.setattr(chart_grid_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(radar_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(momentum_mod, "prefetch_many", fake_prefetch)
+    monkeypatch.setattr(today_mod, "prefetch_many", fake_prefetch)
 
     at = AppTest.from_file(APP_PATH).run(timeout=60)
 
@@ -79,6 +81,7 @@ def test_app_shows_placeholder_card_when_data_missing(monkeypatch):
     monkeypatch.setattr(chart_grid_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(radar_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(momentum_mod, "prefetch_many", fake_prefetch)
+    monkeypatch.setattr(today_mod, "prefetch_many", fake_prefetch)
 
     at = AppTest.from_file(APP_PATH).run(timeout=60)
 

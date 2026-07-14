@@ -11,6 +11,7 @@ import streamlit as st
 
 from trading_dashboard.config import (
     INDEX_LOOKBACK_DAYS,
+    TODAY_PANEL_WINDOW_DAYS,
     TZ_TAIPEI,
     ConfigError,
     configure_logging,
@@ -25,6 +26,7 @@ from trading_dashboard.ui import (
     leaderboard_panel,
     momentum_panel,
     radar_panel,
+    today_panel,
     weather_panel,
 )
 
@@ -63,17 +65,22 @@ def main() -> None:
     leaderboard_panel.render()
     st.markdown("---")
 
-    # 2) 大盤氣象台（指數固定回看 INDEX_LOOKBACK_DAYS 天，確保 MACD/月線成形）
+    # 2) 今日『紅K順風車』點火掃描（全池；固定抓取視窗確保指標成形）
     now_taipei = datetime.now(TZ_TAIPEI)
-    mkt_start = (now_taipei - timedelta(days=INDEX_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     today_str = now_taipei.strftime("%Y-%m-%d")
+    tw_start = (now_taipei - timedelta(days=TODAY_PANEL_WINDOW_DAYS)).strftime("%Y-%m-%d")
+    today_panel.render(stocks_pool, tw_start, today_str)
+    st.markdown("---")
+
+    # 3) 大盤氣象台（指數固定回看 INDEX_LOOKBACK_DAYS 天，確保 MACD/月線成形）
+    mkt_start = (now_taipei - timedelta(days=INDEX_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     weather_panel.render(
         fetch_index_close("TAIEX", mkt_start, today_str),
         fetch_index_close("TPEx", mkt_start, today_str),
     )
     st.markdown("---")
 
-    # 3) 側邊欄監控設定
+    # 4) 側邊欄監控設定
     st.sidebar.header("⚙️ 專業級看盤監控")
     group_choice = st.sidebar.selectbox("選擇觀測族群", list(stocks_pool.keys()))
     st.title(f"🖥️ 監控板塊：{group_choice}")
@@ -84,7 +91,7 @@ def main() -> None:
     sub_chart_type = st.sidebar.selectbox("副圖顯示內容", _SUB_CHART_OPTIONS)
     show_tailwind = st.sidebar.checkbox("🚗 標記『紅K順風車』買賣點", value=True)
 
-    # 4) 計算觀測區間（台灣時區）並抓取共用資料
+    # 5) 計算觀測區間（台灣時區）並抓取共用資料
     start_date = now_taipei - timedelta(days=time_window)
     start_str, end_str = start_date.strftime("%Y-%m-%d"), today_str
 
@@ -92,7 +99,7 @@ def main() -> None:
     disposition_map = fetch_disposition_map()
     selected_stocks = stocks_pool[group_choice]
 
-    # 5) 選股雷達 + 族群動能 + K 線網格牆
+    # 6) 選股雷達 + 族群動能 + K 線網格牆
     radar_panel.render(group_choice, selected_stocks, stocks_pool, start_str, end_str, benchmark_df, disposition_map)
     momentum_panel.render(list(selected_stocks.keys()), start_str, end_str)
     chart_grid.render(

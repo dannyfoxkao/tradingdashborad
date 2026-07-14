@@ -13,6 +13,7 @@ import trading_dashboard.ui.config_editor as editor_mod
 import trading_dashboard.ui.leaderboard_panel as lb_mod
 import trading_dashboard.ui.momentum_panel as momentum_mod
 import trading_dashboard.ui.radar_panel as radar_mod
+import trading_dashboard.ui.today_panel as today_mod
 from trading_dashboard.config import parse_stock_id
 
 APP_PATH = str(Path(__file__).resolve().parent.parent / "app.py")
@@ -66,6 +67,7 @@ def test_buttons_drive_panels(monkeypatch):
     monkeypatch.setattr(chart_grid_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(radar_mod, "prefetch_many", fake_prefetch)
     monkeypatch.setattr(momentum_mod, "prefetch_many", fake_prefetch)
+    monkeypatch.setattr(today_mod, "prefetch_many", fake_prefetch)
 
     # 熱錢排行：避免真的連網 / 寫入磁碟
     monkeypatch.setattr(
@@ -98,6 +100,7 @@ def test_buttons_drive_panels(monkeypatch):
 
     assert not at.exception
     assert len(at.dataframe) >= 1  # 排行或雷達表格已渲染
+    assert "tw_scan_result" in at.session_state  # 點火掃描結果留存 session_state（rerun 不消失）
     assert at.session_state["radar_rows"]  # 掃描結果進 session_state
 
     # 再 rerun 一次（模擬 download_button 等互動）→ 雷達結果不消失
