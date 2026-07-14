@@ -79,7 +79,7 @@ def _render_signal_history(start_str: str, end_str: str) -> None:
 
     if calc:
         hist = _with_forward_returns(hist, int(n_days), end_str)
-    st.dataframe(hist.sort_values("date", ascending=False), use_container_width=True, hide_index=True)
+    st.dataframe(hist.sort_values("date", ascending=False), width="stretch", hide_index=True)
     st.caption("⚠️ 「計算報酬」會對歷史中每檔個股抓取價格（FinMind 額度），已以快取＋去重降低用量。")
 
 
@@ -146,7 +146,7 @@ def _show_results(rows: list[dict], scan_date: str) -> None:
     st.success(
         f"掃描完成：共 {len(res)} 檔（🟢 強多 {n_strong}／🌱 底部翻揚 {n_bottom}／🟡 震盪偏多 {n_mid}）｜由強至弱排序"
     )
-    st.dataframe(res, use_container_width=True, hide_index=True)
+    st.dataframe(res, width="stretch", hide_index=True)
     st.download_button(
         "⬇️ 匯出 CSV",
         data=to_csv_bytes(res),

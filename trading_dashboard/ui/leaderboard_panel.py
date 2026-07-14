@@ -67,7 +67,7 @@ def _show_table() -> None:
     latest_date = str(df["last_seen_date"].max())
     display = df[_DISPLAY_COLUMNS].copy()
     display.columns = _DISPLAY_HEADERS
-    st.dataframe(display, use_container_width=True)
+    st.dataframe(display, width="stretch")
     st.download_button(
         "⬇️ 匯出 CSV",
         data=to_csv_bytes(display),
