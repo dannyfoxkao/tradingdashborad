@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -91,12 +93,26 @@ def _scan_stock(df, lookback):
 
 
 SCAN_KEY = "tw_scan_result"          # session_state：掃描結果（跨 rerun/切換族群保留）
+SHARES_CSV = os.path.join("backtest_cache", "shares_issued.csv")   # 發行股數（sweep_mktcap 產出）
+CAP_THR = 900e8                      # 大型股門檻：市值≥900億 ≈ 全市場前150大
+
+
+def _load_shares():
+    """發行股數 {股號: 股數}；檔案不存在回空 dict（等級標記自動略過）。"""
+    try:
+        if os.path.exists(SHARES_CSV):
+            sh = pd.read_csv(SHARES_CSV, dtype={"sid": str})
+            return dict(zip(sh.sid, sh.shares))
+    except Exception:
+        pass
+    return {}
 
 
 def _run_scan(stocks_pool, start_str, end_str, lookback):
     """實際掃描全池，回傳可存進 session_state 的結果 payload。"""
     seen, rows, scan_date, missed = {}, [], None, []
     pos_rows, pos_seen = [], set()              # 出場雷達列（每檔只列一次）
+    shares = _load_shares()                     # 發行股數 → 市值分級（大型股≥900億）
     prog = st.progress(0.0, text="掃描中…")
     all_items = [(g, tk, nm) for g, d in stocks_pool.items() for tk, nm in d.items()]
     total = len(all_items) or 1
@@ -108,17 +124,20 @@ def _run_scan(stocks_pool, start_str, end_str, lookback):
             if clean_id not in seen:
                 df = fetch_finmind_data(clean_id, start_str, end_str)
                 info, pos_info, last_dt = _scan_stock(df, lookback)
-                seen[clean_id] = (info, pos_info, last_dt)
+                big = None
+                if df is not None and len(df) and clean_id in shares:
+                    big = shares[clean_id] * float(df["Close"].iloc[-1]) >= CAP_THR
+                seen[clean_id] = (info, pos_info, last_dt, big)
                 if last_dt is None:
                     missed.append(f"{name}({clean_id})")
-            info, pos_info, last_dt = seen[clean_id]
+            info, pos_info, last_dt, big = seen[clean_id]
             if last_dt is not None and (scan_date is None or last_dt > scan_date):
                 scan_date = last_dt
             if info is not None:
                 rows.append({"族群": group, "代號": clean_id, "名稱": name,
                              "漲幅%": info["ret"], "點火類型": info["tag"],
                              "點火日": info["date"].strftime("%m/%d"),
-                             "_days": info["days_ago"]})
+                             "_days": info["days_ago"], "_big": bool(big) if big is not None else False})
             if pos_info is not None and clean_id not in pos_seen:
                 pos_seen.add(clean_id)
                 pos_rows.append({"族群": group, "代號": clean_id, "名稱": name, **pos_info})
@@ -150,11 +169,23 @@ def _render_result(payload):
     grp_cnt = df_fire.groupby("族群")["代號"].nunique()
     rally = sorted(grp_cnt[grp_cnt >= 3].index.tolist())
 
-    c1, c2, c3 = st.columns(3)
+    # 等級：🅰️ 大型股(市值≥900億)×族群齊發｜🅱️ 只中一個｜— 都沒中
+    #（回測：A級 多頭勝率58.8%/空頭56.5%，中位數皆轉正；中小型孤軍為最弱桶，建議不做）
+    if "_big" not in df_fire.columns:
+        df_fire["_big"] = False                  # 舊掃描結果相容
+    df_fire["_齊發"] = df_fire["族群"].isin(rally)
+    df_fire["等級"] = np.select(
+        [df_fire["_big"] & df_fire["_齊發"], df_fire["_big"] | df_fire["_齊發"]],
+        ["🅰️", "🅱️"], default="—")
+    n_a = df_fire.loc[df_fire["等級"] == "🅰️", "代號"].nunique()
+
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric(f"{rng_txt}點火", f"{n_stock} 檔", f"其中今日 {n_today} 檔")
     c2.metric("涉及族群", f"{n_group} 個", f"最新交易日 {date_txt}")
     c3.metric("族群齊發(≥3檔)", f"{len(rally)} 群",
               "跨多空最穩濾網" if rally else "無")
+    c4.metric("🅰️ A級(大型×齊發)", f"{n_a} 檔",
+              "多空勝率皆57%±" if n_a else "無")
 
     if rally:
         st.success(f"🔥 **族群齊發（{rng_txt}視窗內 ≥3 檔點火，優先關注）**：" + "、".join(
@@ -163,20 +194,22 @@ def _render_result(payload):
     # 距今日數 → 中文；今日以綠點標示
     df_fire["距今"] = np.where(df_fire["_days"] == 0, "🟢今日",
                                df_fire["_days"].astype(str) + "日前")
-    # 排序：齊發族群優先 → 同族群檔數多 → 越近越前 → 漲幅大
-    df_fire["_齊發"] = df_fire["族群"].isin(rally)
+    # 排序：A級 → B級 → 其他，再依 齊發族群/群檔數/越近/漲幅
+    df_fire["_grade"] = df_fire["等級"].map({"🅰️": 0, "🅱️": 1}).fillna(2)
     df_fire["_群檔數"] = df_fire["族群"].map(grp_cnt)
     df_fire = df_fire.sort_values(
-        ["_齊發", "_群檔數", "族群", "_days", "漲幅%"],
-        ascending=[False, False, True, True, False]).reset_index(drop=True)
+        ["_grade", "_齊發", "_群檔數", "族群", "_days", "漲幅%"],
+        ascending=[True, False, False, True, True, False]).reset_index(drop=True)
     df_fire.insert(0, "齊發", np.where(df_fire["_齊發"], "🔥", ""))
+    df_fire["大型股"] = np.where(df_fire["_big"], "💎", "")
 
     st.dataframe(
-        df_fire[["齊發", "族群", "代號", "名稱", "點火日", "距今", "漲幅%", "點火類型"]],
+        df_fire[["等級", "齊發", "大型股", "族群", "代號", "名稱", "點火日", "距今", "漲幅%", "點火類型"]],
         width="stretch", hide_index=True)
-    st.caption("🔒鎖漲停(免量)：漲停鎖死、量被壓縮仍算數（台股特性）｜🚀爆量突破：漲≥6.5% 且量≥1.5×20日均量。"
-               "⚠️ 一字/鎖死漲停當天實務多半買不到，訊號常需靠隔天成交。"
-               "同一檔若視窗內多次點火，只列最近一次。")
+    st.caption("**等級**：🅰️ 大型股(市值≥900億≈前150大)×族群齊發＝多空勝率皆57%±、中位數正，正常倉位｜"
+               "🅱️ 只中一個濾網＝減碼觀察｜— 中小型孤軍＝回測最弱桶(多頭勝率40%/空頭34%)，建議不做。"
+               "🔒鎖漲停(免量)：漲停鎖死、量被壓縮仍算數｜🚀爆量突破：漲≥6.5% 且量≥1.5×20日均量。"
+               "⚠️ 一字/鎖死漲停當天實務多半買不到；同一檔視窗內多次點火只列最近一次。")
 
     _render_exit_radar(payload.get("pos_rows", []), date_txt)
 
