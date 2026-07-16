@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 
 from data import fetch_finmind_data
+from analysis import red_k_tailwind_signals
 
 
 # =====================================================================
@@ -49,22 +50,44 @@ def _tag_at(c, o, h, v, ret, vm, i):
 
 
 def _scan_stock(df, lookback):
-    """回傳該檔在近 lookback 個交易日內『最近一次』第一根紅K點火資訊；無則 None。
-       另回傳最新交易日(normalize)；last_dt=None 代表這檔沒抓到資料(限流/停牌)。"""
+    """回傳 (點火資訊, 持倉/出場資訊, 最新交易日)。
+       點火＝近 lookback 個交易日內最近一次第一根紅K；無則 None。
+       持倉/出場＝狀態機口徑：今日觸發出場 或 目前持倉中(含出場價/緩衝)。
+       last_dt=None 代表這檔沒抓到資料(限流/停牌)。"""
     if df is None or len(df) < 25:
-        return None, None
+        return None, None, None
     c, o, h, v, ret, vm, disp = _series(df)
     n = len(df)
     last_dt = df.index[-1].normalize()
+
+    ign = None
     lo = max(1, n - lookback)                 # 需要 i-1，故 i>=1
     for pos in range(n - 1, lo - 1, -1):      # 由最新往回，取視窗內最近一次「第一根」點火
         if disp[pos]:
             continue
         if _ignite(c, o, h, v, ret, vm, pos) and not _ignite(c, o, h, v, ret, vm, pos - 1):
             ret_v, tag = _tag_at(c, o, h, v, ret, vm, pos)
-            return {"ret": ret_v, "tag": tag, "date": df.index[pos],
-                    "days_ago": (n - 1) - pos}, last_dt
-    return None, last_dt
+            ign = {"ret": ret_v, "tag": tag, "date": df.index[pos],
+                   "days_ago": (n - 1) - pos}
+            break
+
+    # ── 出場雷達（狀態機：實際進出場配對）──
+    pos_info = None
+    res = red_k_tailwind_signals(df)
+    if res:
+        close = float(c[-1])
+        if res["sells"] and res["sells"][-1]["date"].normalize() == last_dt:
+            pos_info = {"status": "exit", "close": close,
+                        "trail": float(res["trail"].iloc[-1]) if pd.notna(res["trail"].iloc[-1]) else None,
+                        "reason": res["sells"][-1]["reason"]}
+        elif res["latest"]["in_pos"]:
+            tv = res["trail"].iloc[-1]
+            if pd.notna(tv) and close > 0:
+                buf = (close - float(tv)) / close * 100      # 距出場線緩衝(%)
+                pos_info = {"status": "hold", "close": close,
+                            "trail": float(tv), "buffer": buf,
+                            "entry": res["buys"][-1]["date"] if res["buys"] else None}
+    return ign, pos_info, last_dt
 
 
 SCAN_KEY = "tw_scan_result"          # session_state：掃描結果（跨 rerun/切換族群保留）
@@ -73,6 +96,7 @@ SCAN_KEY = "tw_scan_result"          # session_state：掃描結果（跨 rerun/
 def _run_scan(stocks_pool, start_str, end_str, lookback):
     """實際掃描全池，回傳可存進 session_state 的結果 payload。"""
     seen, rows, scan_date, missed = {}, [], None, []
+    pos_rows, pos_seen = [], set()              # 出場雷達列（每檔只列一次）
     prog = st.progress(0.0, text="掃描中…")
     all_items = [(g, tk, nm) for g, d in stocks_pool.items() for tk, nm in d.items()]
     total = len(all_items) or 1
@@ -83,11 +107,11 @@ def _run_scan(stocks_pool, start_str, end_str, lookback):
             clean_id = ticker.split(".")[0].strip()
             if clean_id not in seen:
                 df = fetch_finmind_data(clean_id, start_str, end_str)
-                info, last_dt = _scan_stock(df, lookback)
-                seen[clean_id] = (info, last_dt)
+                info, pos_info, last_dt = _scan_stock(df, lookback)
+                seen[clean_id] = (info, pos_info, last_dt)
                 if last_dt is None:
                     missed.append(f"{name}({clean_id})")
-            info, last_dt = seen[clean_id]
+            info, pos_info, last_dt = seen[clean_id]
             if last_dt is not None and (scan_date is None or last_dt > scan_date):
                 scan_date = last_dt
             if info is not None:
@@ -95,8 +119,11 @@ def _run_scan(stocks_pool, start_str, end_str, lookback):
                              "漲幅%": info["ret"], "點火類型": info["tag"],
                              "點火日": info["date"].strftime("%m/%d"),
                              "_days": info["days_ago"]})
+            if pos_info is not None and clean_id not in pos_seen:
+                pos_seen.add(clean_id)
+                pos_rows.append({"族群": group, "代號": clean_id, "名稱": name, **pos_info})
     prog.empty()
-    return {"rows": rows, "missed": missed, "lookback": lookback,
+    return {"rows": rows, "missed": missed, "lookback": lookback, "pos_rows": pos_rows,
             "scan_date": scan_date.strftime("%Y-%m-%d") if scan_date is not None else "—"}
 
 
@@ -111,6 +138,7 @@ def _render_result(payload):
                    + "、".join(missed[:20]) + ("…" if len(missed) > 20 else ""))
     if not rows:
         st.warning(f"📅 最新交易日 {date_txt}：全池{rng_txt}沒有任何個股觸發紅K順風車進場訊號。")
+        _render_exit_radar(payload.get("pos_rows", []), date_txt)
         return
 
     df_fire = pd.DataFrame(rows)
@@ -149,6 +177,47 @@ def _render_result(payload):
     st.caption("🔒鎖漲停(免量)：漲停鎖死、量被壓縮仍算數（台股特性）｜🚀爆量突破：漲≥6.5% 且量≥1.5×20日均量。"
                "⚠️ 一字/鎖死漲停當天實務多半買不到，訊號常需靠隔天成交。"
                "同一檔若視窗內多次點火，只列最近一次。")
+
+    _render_exit_radar(payload.get("pos_rows", []), date_txt)
+
+
+def _render_exit_radar(pos_rows, date_txt):
+    """🚪 出場雷達：今日觸發出場的標的 + 持倉中依緩衝排序。"""
+    st.markdown("---")
+    st.markdown("#### 🚪 順風車出場雷達（狀態機持倉）")
+    if not pos_rows:
+        st.info("目前策略沒有任何持倉、也沒有今日出場訊號。")
+        return
+
+    exits = [r for r in pos_rows if r["status"] == "exit"]
+    holds = sorted([r for r in pos_rows if r["status"] == "hold"],
+                   key=lambda r: r.get("buffer", 1e9))
+    n_danger = sum(1 for r in holds if r.get("buffer", 99) < 3)
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("🔴 今日觸發出場", f"{len(exits)} 檔", f"最新交易日 {date_txt}")
+    c2.metric("⚠️ 接近出場(緩衝<3%)", f"{n_danger} 檔")
+    c3.metric("🟢 持倉中", f"{len(holds)} 檔")
+
+    if exits:
+        st.error("🔴 **今日觸發出場（收盤已跌破出場線／性質切換），依紀律隔天出場**：" + "、".join(
+            f"{r['名稱']}({r['代號']}) {r['reason']}" for r in exits))
+
+    disp = []
+    for r in exits:
+        disp.append({"狀態": "🔴出場", "族群": r["族群"], "代號": r["代號"], "名稱": r["名稱"],
+                     "收盤": r["close"], "出場價": r.get("trail"),
+                     "緩衝%": None, "備註": r.get("reason", "")})
+    for r in holds:
+        buf = r.get("buffer")
+        mark = "⚠️危險" if (buf is not None and buf < 3) else "🟢持倉"
+        disp.append({"狀態": mark, "族群": r["族群"], "代號": r["代號"], "名稱": r["名稱"],
+                     "收盤": r["close"], "出場價": round(r["trail"], 2),
+                     "緩衝%": round(buf, 1) if buf is not None else None,
+                     "備註": f"進場 {r['entry'].strftime('%m/%d')}" if r.get("entry") is not None else ""})
+    st.dataframe(pd.DataFrame(disp), width="stretch", hide_index=True)
+    st.caption("出場價＝進場後最高收盤 − 2×ATR14(處置剔除)，逐日上移；**收盤 < 出場價 → 隔日出場**。"
+               "緩衝%＝(收盤−出場價)/收盤，越小越接近出場。持倉為策略狀態機口徑，非你的實際庫存。")
 
 
 def render_today_tailwind(stocks_pool, start_str, end_str):
