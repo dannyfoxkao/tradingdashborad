@@ -22,6 +22,7 @@ import streamlit as st
 from data import fetch_benchmark_data, fetch_index_close, fetch_disposition_map
 from ui_leaderboard import render_leaderboard
 from ui_today import render_today_tailwind
+from ui_intraday import render_intraday_prescan
 from ui_weather import render_market_weather
 from ui_radar import render_stock_radar
 from ui_grid import render_group_momentum, render_grid_wall
@@ -38,6 +39,9 @@ st.markdown("---")
 _today_end = datetime.today().strftime("%Y-%m-%d")
 _today_start = (datetime.today() - timedelta(days=120)).strftime("%Y-%m-%d")
 render_today_tailwind(STOCKS_POOL, _today_start, _today_end)
+
+# 📡 盤中預掃（即時報價；按鈕觸發）
+render_intraday_prescan(STOCKS_POOL, _today_start, _today_end)
 
 st.markdown("---")
 
