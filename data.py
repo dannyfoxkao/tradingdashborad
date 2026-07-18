@@ -13,7 +13,8 @@ FINMIND_TOKEN_FILE = "finmind_token.json"   # 本地憑證檔（已列入 .gitig
 
 
 def _load_finmind_token():
-    """讀取 FinMind API token：優先本地 finmind_token.json，其次環境變數 FINMIND_TOKEN。"""
+    """讀取 FinMind API token，依序嘗試：
+    ① 本地 finmind_token.json（開發機）② st.secrets（Streamlit Cloud）③ 環境變數 FINMIND_TOKEN。"""
     try:
         if os.path.exists(FINMIND_TOKEN_FILE):
             import json
@@ -22,6 +23,12 @@ def _load_finmind_token():
             if tok:
                 return tok
     except Exception:
+        pass
+    try:                                   # Cloud：App settings → Secrets 填 FINMIND_TOKEN = "..."
+        tok = (st.secrets.get("FINMIND_TOKEN") or "").strip()
+        if tok:
+            return tok
+    except Exception:                      # 本地無 secrets.toml 時 st.secrets 會丟例外
         pass
     return (os.environ.get("FINMIND_TOKEN") or "").strip()
 
