@@ -3,5 +3,15 @@ pandas>=2.2
 numpy>=2.0
 plotly>=6.0
 requests>=2.32
-FinMind>=1.7
+FinMind==2.0.3
 yfinance>=0.2.50
+# FinMind 執行期相依（Cloud 上 pip 解析退化時會漏裝，明列保險）
+tqdm
+loguru
+lxml
+pydantic
+ta
+aiohttp
+nest-asyncio
+pyecharts
+ipython
