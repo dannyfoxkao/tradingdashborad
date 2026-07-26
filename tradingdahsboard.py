@@ -23,6 +23,7 @@ from data import fetch_benchmark_data, fetch_index_close, fetch_disposition_map
 from ui_leaderboard import render_leaderboard
 from ui_today import render_today_tailwind
 from ui_intraday import render_intraday_prescan
+from ui_nav import render_group_nav
 from ui_weather import render_market_weather
 from ui_radar import render_stock_radar
 from ui_grid import render_group_momentum, render_grid_wall
@@ -47,7 +48,7 @@ st.markdown("---")
 
 # ⚙️ 側邊欄：專業級看盤監控
 st.sidebar.header("⚙️ 專業級看盤監控")
-group_choice = st.sidebar.selectbox("選擇觀測族群", list(STOCKS_POOL.keys()))
+group_choice = render_group_nav(STOCKS_POOL)
 
 st.title(f"🖥️ 監控板塊：{group_choice}")
 
