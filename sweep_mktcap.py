@@ -50,7 +50,10 @@ def load_shares(uniq, sleep=0.15):
 
 def main():
     uniq, groups, market = build_universe({"大盤"})
-    shares = load_shares(uniq)
+    # 發行股數抓「全池」（含大盤群）——市值供 app 的 A/B 分級用，
+    # 與回測排除大盤是兩回事；否則只在大盤群的個股（如台積電）永遠拿不到市值。
+    all_ids, _, _ = build_universe(set())
+    shares = load_shares(all_ids)
 
     # 市值（用多頭段最後收盤；空頭段沿用同一分層，附註偏誤）
     caps = {}
