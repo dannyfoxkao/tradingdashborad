@@ -23,6 +23,7 @@ from data import fetch_benchmark_data, fetch_index_close, fetch_disposition_map
 from ui_leaderboard import render_leaderboard
 from ui_today import render_today_tailwind
 from ui_intraday import render_intraday_prescan
+from ui_revenue import render_revenue_radar
 from ui_nav import render_group_nav
 from ui_weather import render_market_weather
 from ui_radar import render_stock_radar
@@ -43,6 +44,9 @@ render_today_tailwind(STOCKS_POOL, _today_start, _today_end)
 
 # 📡 盤中預掃（即時報價；按鈕觸發）
 render_intraday_prescan(STOCKS_POOL, _today_start, _today_end)
+
+# 📈 營收動能雷達（YoY 創高 × 買拉回；按鈕觸發）
+render_revenue_radar(STOCKS_POOL, _today_start, _today_end)
 
 st.markdown("---")
 
